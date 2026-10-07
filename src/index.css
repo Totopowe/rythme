@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Jetons de couleur (canaux RGB pour permettre l'opacité Tailwind).
+ * L'accent suit le mode de la semaine : <html data-mode="ecole|entreprise|conge">.
+ */
+@layer base {
+  :root {
+    --bg: 251 251 250;
+    --surface: 255 255 255;
+    --raised: 255 255 255;
+    --line: 232 232 229;
+    --ink: 28 28 26;
+    --muted: 104 104 99;
+    --faint: 150 150 144;
+    --danger: 196 50 50;
+
+    --ecole: 79 91 213;
+    --ecole-soft: 238 240 253;
+    --entreprise: 11 125 104;
+    --entreprise-soft: 230 245 241;
+    --perso: 180 83 9;
+    --perso-soft: 252 241 228;
+
+    --accent: var(--entreprise);
+    --accent-soft: var(--entreprise-soft);
+
+    color-scheme: light;
+  }
+
+  :root.dark {
+    --bg: 17 17 19;
+    --surface: 24 24 27;
+    --raised: 32 32 36;
+    --line: 44 44 50;
+    --ink: 236 236 238;
+    --muted: 160 160 168;
+    --faint: 112 112 120;
+    --danger: 240 110 110;
+
+    --ecole: 141 151 255;
+    --ecole-soft: 34 36 60;
+    --entreprise: 60 196 164;
+    --entreprise-soft: 22 46 41;
+    --perso: 240 165 90;
+    --perso-soft: 52 38 24;
+
+    color-scheme: dark;
+  }
+
+  :root[data-mode='ecole'] {
+    --accent: var(--ecole);
+    --accent-soft: var(--ecole-soft);
+  }
+  :root[data-mode='entreprise'] {
+    --accent: var(--entreprise);
+    --accent-soft: var(--entreprise-soft);
+  }
+  :root[data-mode='conge'] {
+    --accent: var(--perso);
+    --accent-soft: var(--perso-soft);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.22);
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply bg-transparent;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-faint;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
+}
+
+@layer components {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Contenu Markdown des notes */
+  .prose-note {
+    @apply text-[15px] leading-7 text-ink;
+  }
+  .prose-note h1 {
+    @apply mb-3 mt-6 text-xl font-semibold tracking-tight first:mt-0;
+  }
+  .prose-note h2 {
+    @apply mb-2 mt-6 text-lg font-semibold tracking-tight first:mt-0;
+  }
+  .prose-note h3 {
+    @apply mb-2 mt-5 font-semibold first:mt-0;
+  }
+  .prose-note p {
+    @apply my-3;
+  }
+  .prose-note ul {
+    @apply my-3 list-disc pl-6;
+  }
+  .prose-note ol {
+    @apply my-3 list-decimal pl-6;
+  }
+  .prose-note li {
+    @apply my-1;
+  }
+  .prose-note a {
+    @apply text-accent underline decoration-accent/40 underline-offset-2;
+  }
+  .prose-note code {
+    @apply rounded bg-line/60 px-1 py-0.5 font-mono text-[13px];
+  }
+  .prose-note pre {
+    @apply my-4 overflow-x-auto rounded-lg bg-line/40 p-4 text-[13px];
+  }
+  .prose-note pre code {
+    @apply bg-transparent p-0;
+  }
+  .prose-note blockquote {
+    @apply my-4 border-l-2 border-accent/50 pl-4 text-muted;
+  }
+  .prose-note hr {
+    @apply my-6 border-line;
+  }
+  .prose-note table {
+    @apply my-4 w-full text-sm;
+  }
+  .prose-note th,
+  .prose-note td {
+    @apply border-b border-line px-2 py-1.5 text-left;
+  }
+  .prose-note input[type='checkbox'] {
+    @apply mr-2 align-middle accent-[rgb(var(--accent))];
+  }
+}

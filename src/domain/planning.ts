@@ -82,7 +82,7 @@ export function todayBuckets(tasks: readonly Task[], today: ISODate, wake: Schoo
   return { overdue, today: todayList, wokenUp, thisWeek };
 }
 
-export function upcomingDeadlines(deadlines: readonly Deadline[], today: ISODate, days = 21): Deadline[] {
+export function upcomingDeadlines(deadlines: readonly Deadline[], today: ISODate, days = 30): Deadline[] {
   const limit = addDays(today, days);
   return deadlines
     .filter((d) => d.date >= today && d.date <= limit)

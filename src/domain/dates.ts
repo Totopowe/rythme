@@ -147,7 +147,7 @@ export function formatRelative(iso: ISODate, today: ISODate): string {
 export function formatCountdown(days: number): string {
   if (days <= 0) return "aujourd'hui";
   if (days === 1) return 'demain';
-  if (days < 14) return `dans ${days} jours`;
+  if (days <= 21) return `dans ${days} jours`;
   const weeks = Math.round(days / 7);
   return `dans ${weeks} semaines`;
 }

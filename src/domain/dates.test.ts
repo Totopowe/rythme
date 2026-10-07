@@ -57,6 +57,7 @@ describe('dates', () => {
     expect(formatRelative('2026-10-04', '2026-10-07')).toBe('Il y a 3 j');
     expect(formatCountdown(6)).toBe('dans 6 jours');
     expect(formatCountdown(1)).toBe('demain');
-    expect(formatCountdown(21)).toBe('dans 3 semaines');
+    expect(formatCountdown(19)).toBe('dans 19 jours');
+    expect(formatCountdown(28)).toBe('dans 4 semaines');
   });
 });
