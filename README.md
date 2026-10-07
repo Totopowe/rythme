@@ -1,120 +1,138 @@
 # Rythme
 
-Organiseur personnel pour étudiant en alternance. Rythme connaît ton calendrier école / entreprise, sait à tout moment dans quel mode tu es, et organise ta journée en conséquence : tâches, échéances, notes et revue de fin de période.
+Rythme aide les alternants à organiser leur vie entre école et entreprise, et leur permet de partager leur calendrier avec leur tuteur.
 
-- **Local d'abord** : tout est stocké dans le navigateur (IndexedDB). Pas de compte, pas de serveur.
-- **Hors ligne** : PWA installable sur téléphone et ordinateur.
-- **Clavier d'abord** : capture en moins de 3 secondes avec <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd>.
+- **Aujourd'hui** : mode du jour (École / Entreprise) avec sa couleur, tâches, échéances, compte à rebours avant le prochain changement.
+- **Calendrier annuel** : frise des périodes au jour près, corrections ponctuelles (férié, semaine décalée), absences, échéances.
+- **Tâches** et **capture rapide** (<kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd>, bouton central sur mobile) en langage naturel : `rendre dossier finance #ecole vendredi`.
+- **Revue de transition** guidée à la fin de chaque période.
+- **Partage tuteur** : lien privé, lecture seule, révocable. **Abonnement agenda** `.ics`.
+- **Mesure d'usage** anonyme et page **/admin** (inscrits, actifs, rétention par cohorte, retours).
+- **RGPD** : page Confidentialité, export JSON, suppression du compte en un clic.
+- **PWA** installable, lecture et saisie hors ligne (synchronisées au retour du réseau).
 
-## Installation et lancement
+Stack : Vite, React, TypeScript strict, Tailwind, Supabase (Auth + Postgres + RLS), fonctions Vercel, Vitest. Tout tient dans les offres gratuites.
+
+---
+
+## 1. Créer le projet Supabase
+
+1. Sur [supabase.com](https://supabase.com), crée un projet (région **West EU (Paris)**). Note le mot de passe de la base.
+2. **Appliquer le schéma** (tables, RLS, fonctions) depuis ce dépôt :
+   ```bash
+   npx supabase login
+   ```
+   ```bash
+   npx supabase link --project-ref <ref-du-projet>
+   ```
+   ```bash
+   npx supabase db push
+   ```
+   Le *ref* est l'identifiant dans l'URL du projet (`https://<ref>.supabase.co`). `link` demande le mot de passe de la base.
+3. **Authentication → Sign In / Providers → Email** : laisse *Email* et *Confirm email* activés.
+4. **Authentication → URL Configuration** :
+   - *Site URL* : l'adresse de production (ex. `https://rythme.vercel.app`)
+   - *Redirect URLs* : ajoute aussi `http://localhost:5173/**` pour le développement.
+5. **Authentication → Emails → Templates** : pour *Magic Link* et *Confirm signup*, colle le contenu de `supabase/templates/magic-link.html` et l'objet `Ton code Rythme : {{ .Token }}`. L'e-mail contient ainsi un **code à 6 chiffres** (indispensable sur iPhone, où le lien s'ouvrirait hors de l'app installée) et un lien.
+6. **Envoi des e-mails (SMTP)** : le service intégré de Supabase n'envoie qu'aux membres de l'équipe. Avec [Brevo](https://brevo.com) (gratuit, 300 e-mails/jour) :
+   - Brevo → *Expéditeurs* → ajoute et vérifie ton adresse d'envoi ;
+   - Brevo → *SMTP et API* → note le login SMTP et génère une clé SMTP ;
+   - Supabase → *Authentication → Emails → SMTP Settings* : hôte `smtp-relay.brevo.com`, port `587`, identifiant = login SMTP, mot de passe = clé SMTP, expéditeur = adresse vérifiée.
+   - Supabase → *Authentication → Rate Limits* : monte la limite d'e-mails à 30/heure.
+
+## 2. Variables d'environnement
+
+Copie `.env.example` en `.env.local` et remplis :
+
+| Variable | Où la trouver | Utilisée par |
+|---|---|---|
+| `VITE_SUPABASE_URL` | Supabase → Project Settings → API | navigateur + fonctions |
+| `VITE_SUPABASE_ANON_KEY` | idem, clé *anon / publishable* (publique) | navigateur + fonctions |
+| `SUPABASE_SERVICE_ROLE_KEY` | idem, clé *service_role / secret* — **secrète** | `/api/admin` uniquement |
+| `ADMIN_EMAIL` | ton adresse (plusieurs : séparées par des virgules) | `/api/admin` |
+| `VITE_CONTACT_EMAIL` | facultatif, affichée sur la page Confidentialité | navigateur |
+
+Aucune clé n'est écrite dans le code. Seules les variables préfixées `VITE_` (publiques) sont incluses dans le build.
+
+## 3. Lancer en local
 
 Prérequis : Node.js 22 LTS (ou 20.19+).
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
+```
+```bash
+npm run dev
 ```
 
-| Commande            | Rôle                                                  |
-| ------------------- | ----------------------------------------------------- |
-| `npm run dev`       | Serveur de développement                              |
-| `npm test`          | Tests Vitest (logique métier + base de données)       |
-| `npm run typecheck` | Vérification TypeScript stricte                       |
-| `npm run build`     | Build de production dans `dist/` (avec service worker) |
-| `npm run preview`   | Sert le build de production sur http://localhost:4173 |
+L'app tourne sur http://localhost:5173. Les fonctions `/api` (admin, flux `.ics`) ne tournent qu'avec `npx vercel dev` ou une fois déployées.
 
-## Installer sur téléphone
+| Commande | Rôle |
+|---|---|
+| `npm test` | Tests Vitest : logique métier, synchronisation, **politiques RLS** (Postgres en mémoire via PGlite) |
+| `npm run typecheck` | TypeScript strict |
+| `npm run build` | Build de production + service worker |
 
-Un téléphone n'installe une PWA que si elle est servie en **HTTPS**. Le dépôt contient un workflow GitHub Pages prêt à l'emploi :
+## 4. Déployer sur Vercel
 
-1. Pousse le projet sur un dépôt GitHub (branche `main`).
-2. Dans le dépôt : **Settings → Pages → Source : GitHub Actions**.
-3. À chaque push, l'app est testée, construite et publiée sur `https://<utilisateur>.github.io/<dépôt>/`.
-4. Sur le téléphone, ouvre cette adresse puis :
-   - **iPhone (Safari)** : Partager → « Sur l'écran d'accueil ».
-   - **Android (Chrome)** : menu ⋮ → « Installer l'application ».
+1. Sur [vercel.com](https://vercel.com), *Add New → Project* → importe ce dépôt GitHub (Vite est détecté).
+2. *Settings → Environment Variables* : ajoute les 4 (ou 5) variables ci-dessus.
+3. Déploie. Chaque push sur `main` redéploie ; chaque branche a son aperçu.
+4. Reporte l'adresse de production dans Supabase (*Site URL*, étape 1.4).
 
-Après la première visite, l'app fonctionne entièrement hors ligne. Les mises à jour s'installent automatiquement à la visite suivante.
+`vercel.json` route `/cal/<jeton>.ics` vers la fonction `.ics` et toutes les autres pages vers l'app.
 
-Les données vivent dans le navigateur de chaque appareil : pour passer de l'ordinateur au téléphone, utilise **Réglages → Exporter / Importer**.
+## 5. Installer sur téléphone
 
-## Utilisation
+Ouvre l'adresse Vercel puis **iPhone (Safari)** : Partager → « Sur l'écran d'accueil » ; **Android (Chrome)** : ⋮ → « Installer l'application ». Connecte-toi avec le **code** reçu par e-mail.
 
-1. **Configure ton rythme** au premier lancement : date de début et séquence (3 entreprise / 1 école par défaut). Les congés et semaines irrégulières se corrigent d'un clic dans le calendrier, ou en collant le calendrier de l'école dans **Réglages → Importer des semaines**.
-2. **Capture** : <kbd>⌘K</kbd>, tape, <kbd>Entrée</kbd>. La syntaxe :
-
-   | Saisie                                  | Effet                                   |
-   | --------------------------------------- | --------------------------------------- |
-   | `#ecole` `#entreprise` `#perso`         | Contexte (sinon : celui de la semaine)  |
-   | `demain`, `vendredi`, `lundi prochain`  | Date                                    |
-   | `12/11`, `12 mars`, `dans 3 jours`      | Date                                    |
-   | `semaine prochaine`, `fin du mois`      | Date                                    |
-   | `!` `!!` `!!!`                          | Priorité basse / moyenne / haute        |
-   | `@partiel` `@rendu` `@memoire` `@reunion` | Crée une échéance au lieu d'une tâche |
-
-   Exemple : `rendre dossier finance #ecole vendredi !!`
-
-3. **Réveil des tâches École** : pendant les périodes en entreprise, les tâches École sans date proche restent discrètes ; elles réapparaissent sur « Aujourd'hui » 7 jours avant la semaine d'école (réglable).
-4. **Revue de transition** : à partir du vendredi de la dernière semaine d'une période, un bandeau propose de faire le point (en suspens → à préparer → bilan).
+---
 
 ## Raccourcis clavier
 
-Appuie sur <kbd>?</kbd> dans l'app pour les afficher.
+<kbd>?</kbd> dans l'app affiche l'aide.
 
-| Partout                      |                                         |
-| ---------------------------- | --------------------------------------- |
-| <kbd>⌘/Ctrl</kbd> <kbd>K</kbd> | Palette : capturer, chercher, agir     |
-| <kbd>N</kbd>                 | Nouvelle tâche (nouvelle note dans Notes) |
-| <kbd>1</kbd> à <kbd>4</kbd>  | Aujourd'hui, Tâches, Calendrier, Notes  |
-| <kbd>,</kbd>                 | Réglages                                |
-| <kbd>?</kbd>                 | Aide des raccourcis                     |
-| <kbd>⌘/Ctrl</kbd> <kbd>Z</kbd> | Annuler la dernière suppression        |
+| Partout | |
+|---|---|
+| <kbd>⌘/Ctrl</kbd> <kbd>K</kbd> | Palette : capturer, chercher, agir |
+| <kbd>N</kbd> | Nouvelle tâche |
+| <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> | Aujourd'hui, Tâches, Calendrier, Partage |
+| <kbd>,</kbd> | Réglages |
+| <kbd>⌘/Ctrl</kbd> <kbd>Z</kbd> | Annuler la dernière suppression |
+| **Listes de tâches** | |
+| <kbd>J</kbd> <kbd>K</kbd> / flèches | Tâche suivante / précédente |
+| <kbd>X</kbd> / <kbd>Espace</kbd> | Cocher |
+| <kbd>E</kbd> / <kbd>Entrée</kbd> | Modifier |
+| <kbd>Suppr</kbd> | Supprimer (annulable) |
+| <kbd>Alt</kbd> <kbd>↑</kbd> <kbd>↓</kbd> | Monter / descendre |
+| <kbd>F</kbd> | Changer de filtre |
+| **Calendrier** | |
+| <kbd>←</kbd> <kbd>→</kbd> / <kbd>↑</kbd> <kbd>↓</kbd> | Semaine ± 1 / ± 4 |
+| <kbd>T</kbd> | Revenir à aujourd'hui |
 
-| Listes de tâches             |                                         |
-| ---------------------------- | --------------------------------------- |
-| <kbd>J</kbd> / <kbd>K</kbd> ou flèches | Tâche suivante / précédente   |
-| <kbd>X</kbd> ou <kbd>Espace</kbd> | Cocher / décocher                  |
-| <kbd>E</kbd> ou <kbd>Entrée</kbd> | Modifier                           |
-| <kbd>Suppr</kbd>             | Supprimer (annulable)                   |
-| <kbd>Alt</kbd> <kbd>↑</kbd> / <kbd>↓</kbd> | Monter / descendre la tâche |
-| <kbd>F</kbd>                 | Changer de filtre de contexte           |
+Capture : `#ecole` `#entreprise` `#perso`, dates en toutes lettres (`vendredi`, `demain`, `12/11`, `dans 3 jours`), priorité `!` à `!!!`, `@partiel` `@rendu` `@memoire` `@reunion` pour une échéance.
 
-| Calendrier                   |                                         |
-| ---------------------------- | --------------------------------------- |
-| <kbd>←</kbd> <kbd>→</kbd>    | Semaine précédente / suivante           |
-| <kbd>↑</kbd> <kbd>↓</kbd>    | 4 semaines avant / après                |
-| <kbd>T</kbd>                 | Revenir à la semaine en cours           |
-
-| Notes et fenêtres            |                                         |
-| ---------------------------- | --------------------------------------- |
-| <kbd>/</kbd>                 | Rechercher dans les notes               |
-| <kbd>⌘/Ctrl</kbd> <kbd>E</kbd> | Basculer édition / aperçu             |
-| <kbd>⌘/Ctrl</kbd> <kbd>Entrée</kbd> | Enregistrer / étape suivante     |
-| <kbd>Échap</kbd>             | Fermer                                  |
-
-## Structure du projet
+## Structure
 
 ```
+supabase/
+├─ migrations/        Schéma versionné : tables, RLS, déclencheurs d'usage, fonctions de partage
+├─ templates/         E-mail de connexion (code + lien)
+└─ tests/             Tests RLS dans PGlite (Postgres WebAssembly, sans Docker)
+api/                  Fonctions Vercel : ics.ts (abonnement agenda), admin.ts (statistiques)
 src/
-├─ domain/          Logique métier pure, sans React ni base de données (testée)
-│  ├─ dates.ts          Dates ISO sans fuseau horaire, formatage français
-│  ├─ rhythm.ts         Calcul du mode, périodes, compte à rebours, année scolaire
-│  ├─ quickCapture.ts   Parseur de la capture rapide
-│  ├─ planning.ts       Réveil des tâches École, vue Aujourd'hui, revue de transition
-│  ├─ search.ts         Recherche insensible aux accents
-│  ├─ order.ts          Réordonnancement dans une liste filtrée
-│  ├─ weekImport.ts     Import manuel d'un calendrier de semaines
-│  ├─ backup.ts         Format et validation de la sauvegarde JSON
-│  └─ types.ts          Modèle de données
-├─ db/              Dexie (IndexedDB) : schéma, opérations, export/import
-├─ features/        Un dossier par écran
-│  ├─ today/  tasks/  calendar/  notes/  review/  settings/  onboarding/
-│  ├─ capture/          Champ d'ajout rapide et aperçu de la saisie
-│  └─ deadlines/        Échéances (ligne et éditeur)
-├─ shell/           Mise en page, navigation, palette ⌘K, aide des raccourcis
-├─ components/      Composants d'interface réutilisables (boutons, fenêtre, toasts…)
-└─ hooks/           Données de l'app, thème, raccourcis, date du jour
-scripts/generate-icons.py   Génère les icônes PNG de la PWA (sans dépendance)
+├─ domain/            Logique métier pure et testée
+│  ├─ rhythm.ts, templates.ts   Rythme au jour près, modèles 3/1, 2/2, 4j/1j, 3j/2j, sur mesure
+│  ├─ quickCapture.ts           Parseur de capture rapide
+│  ├─ planning.ts               Réveil des tâches École, vue Aujourd'hui, revue de transition
+│  ├─ ics.ts                    Génération iCalendar
+│  ├─ analytics.ts              Actifs hebdomadaires, rétention par cohorte
+│  └─ dates.ts, search.ts, order.ts, weekImport.ts, types.ts
+├─ data/              Store synchronisé : client Supabase, instantané hors ligne, file d'écritures
+├─ features/          Un dossier par écran (today, tasks, calendar, review, share, tutor, admin…)
+├─ shell/             Navigation, palette ⌘K, aide des raccourcis
+├─ components/        Composants d'interface (boutons, fenêtres, toasts…)
+└─ hooks/             Session, données dérivées, thème, raccourcis
 ```
 
-Les choix d'architecture et de produit sont expliqués dans [DECISIONS.md](DECISIONS.md).
+Les choix sont expliqués dans [DECISIONS.md](DECISIONS.md).

@@ -1,76 +1,70 @@
-# Décisions
+# Décisions — Rythme V1
 
-Choix faits pendant la construction de Rythme, avec leur raison.
+La V1 doit prouver une seule chose : **les alternants l'utilisent encore après 4 semaines.** Chaque choix ci-dessous est pesé à cette aune, avec un budget nul.
+
+## Périmètre
+
+- **La V1 repart de la version locale (tag `v0`)** : logique de rythme, parseur de capture, réveil des tâches, revue, interface et raccourcis sont réutilisés.
+- **Notes Markdown retirées.** Absentes du cahier des charges ; chaque écran en plus dilue le test de rétention. Le bilan de revue reste conservé et relisible.
+- **Onglet « Partage »** dans la navigation principale à la place des notes : le lien tuteur est ce qui rend Rythme utile au-delà de l'alternant, et ce que les écoles paieront demain.
 
 ## Architecture
 
-- **Logique métier pure dans `src/domain/`**. Aucune dépendance à React ni à Dexie : le calcul du rythme, le parseur de capture, le réveil des tâches et la revue sont testés directement par Vitest, sans navigateur.
-- **Dates en chaînes `YYYY-MM-DD`** et calculs en UTC. Les changements d'heure et les fuseaux ne peuvent pas décaler une semaine. Pas de bibliothèque de dates : une quinzaine de fonctions testées suffisent.
-- **Pas de store global** : les composants lisent IndexedDB avec `useLiveQuery` (dexie-react-hooks). Toute écriture se reflète immédiatement partout.
-- **Routage par hash** (`#/notes`) avec wouter (≈ 2 Ko). Fonctionne sur GitHub Pages sans configuration serveur et hors ligne.
-- **Vues secondaires chargées à la demande** (Tâches, Calendrier, Notes, Revue, Réglages). La vue Aujourd'hui s'affiche plus vite ; tout reste précaché pour le hors ligne.
-- **Dépendances limitées** : dexie, wouter, @dnd-kit (glisser-déposer accessible, souris, tactile et clavier), marked + DOMPurify (Markdown assaini), vite-plugin-pwa. Icônes SVG dessinées à la main, police système.
+- **Supabase en direct depuis le navigateur**, protégé par la RLS. Pas de serveur applicatif. Deux fonctions Vercel seulement : le flux `.ics` (les agendas ne savent pas appeler Supabase) et `/admin` (clé `service_role`, jamais exposée au navigateur).
+- **Une seule logique métier en TypeScript**, partagée par l'app, la page tuteur, le flux `.ics` et le calcul de rétention. Postgres stocke le rythme brut (motif + corrections) et ne recalcule rien : aucune logique dupliquée en SQL.
+- **Toutes les données de l'alternant en mémoire** (quelques centaines de lignes) : chargées au démarrage, écritures optimistes. L'app est aussi rapide que la version locale.
+- **Hors ligne** : instantané des données dans `localStorage` (lecture immédiate), file d'écritures persistée, compactée (modifications successives fusionnées, création + suppression hors ligne annulées) et rejouée au retour du réseau. Les créations sont des *upserts* par identifiant généré côté client : rejouer est sans danger. Une écriture refusée par le serveur est abandonnée, signalée par un toast, et l'app se recale sur l'état du serveur.
+- **Routage par chemins** (`/calendrier`, `/t/<jeton>`) avec réécriture Vercel vers `index.html`.
+- **Imports `.js` dans les modules métier partagés avec les fonctions Vercel** : en ESM, Vercel transpile fichier par fichier ; les imports sans extension échoueraient à l'exécution. Vérifié par une simulation de cette transpilation.
 
-## Rythme d'alternance
+## Données et sécurité
 
-- **Semaines du lundi au dimanche.** Le week-end appartient à la semaine qui se termine.
-- **Motif répété + exceptions.** Le rythme est un motif (ex. E, E, E, É) répété depuis une date de début ; chaque semaine peut être corrigée individuellement (exception). Une exception identique au motif est automatiquement supprimée.
-- **Troisième type de semaine : Congé.** Les congés et jours fériés groupés cassent le 3/1. En congé, l'accent est ambre et le contexte par défaut est Perso.
-- **Le motif se prolonge avant la date de début**, pour que la frise de l'année reste cohérente.
-- **Compte à rebours** : en entreprise, on annonce la prochaine semaine d'école même si un congé s'intercale ; sinon, le prochain changement de mode. En jours jusqu'à 21 jours, en semaines au-delà.
-- **Année scolaire de septembre à août** dans le calendrier ; une semaine appartient au mois de son jeudi (convention ISO). À partir d'août, le calendrier affiche l'année suivante.
-- **Import manuel des semaines** : texte libre, une ligne par semaine ou par plage (`21/12/2026 au 03/01/2027 congé`), formats français ou ISO, séparateurs espace/virgule/point-virgule. Les lignes illisibles sont signalées, pas importées.
+- **RLS sur toutes les tables**, politique unique « le propriétaire est `auth.uid()` ». `user_id` a `auth.uid()` pour valeur par défaut : le client ne l'envoie jamais.
+- **Le rôle anonyme n'a accès à aucune table.** La page tuteur et le flux `.ics` passent par deux fonctions `SECURITY DEFINER` qui ne renvoient que les champs autorisés.
+- **Colonnes protégées** : seul un sous-ensemble du profil est modifiable (pas l'identifiant d'analyse ni l'école/promo rattachée) ; un lien de partage ne peut être modifié que pour être révoqué.
+- **Jetons de partage** : 192 bits aléatoires (32 caractères), un seul actif par type, révocables et régénérables. Ils sont stockés en clair, lisibles par leur seul propriétaire, pour que l'alternant puisse recopier son lien depuis n'importe quel appareil. Un stockage par empreinte n'aurait protégé que d'une fuite de la base, qui exposerait de toute façon bien plus.
+- **Page tuteur** : prénom, école, rythme, *dates et type* des absences visibles (jamais leur précision), échéances explicitement partagées (titre, type, date). Jamais de tâches ni de bilans. En-têtes `noindex` et `Referrer-Policy: no-referrer` pour que le lien ne fuite pas.
+- **Absences visibles par défaut, échéances masquées par défaut** : un tuteur a besoin de savoir quand l'alternant est absent ; une échéance peut être personnelle.
+- **Écoles et promos** : tables `schools` et `cohorts` créées dès maintenant, `profiles.school_id` / `cohort_id` nuls en V1. Rattacher un alternant plus tard ne demandera aucune refonte ; aucun accès n'est ouvert pour l'instant.
+- **Tests RLS sans Docker** : les migrations sont appliquées dans PGlite (Postgres compilé en WebAssembly) avec une reproduction minimale de Supabase (rôles `anon`/`authenticated`, `auth.uid()`, droits par défaut). 41 tests vérifient l'isolation entre comptes, les refus du rôle anonyme, le contenu exact de la page tuteur, les événements et la suppression du compte. Ils tournent dans `npm test`.
 
-## Tâches
+## Authentification
 
-- **Contexte par défaut = mode de la semaine** quand la saisie n'en précise pas.
-- **Nouvelles tâches en haut** de la liste (ordre manuel). L'ordre d'une nouvelle tâche est `-Date.now()` : pas de conflit même en saisie très rapide.
-- **Réveil des tâches École** : pendant l'entreprise, une tâche École non faite sans date dans les 7 jours est « en sommeil » (affichée en retrait dans Tâches, absente d'Aujourd'hui). Elle réapparaît dans « À préparer pour l'école » N jours avant la semaine d'école (7 par défaut, réglable). Calcul dynamique, rien n'est stocké.
-- **Vue Aujourd'hui** : en retard, aujourd'hui (les tâches cochées du jour restent visibles, barrées), à préparer pour l'école, reste de la semaine, échéances des 30 prochains jours.
-- **Glisser-déposer dans une liste filtrée** : seuls les éléments visibles changent de place ; les autres gardent leur position.
-- **Raccourci Alt+↑/↓** en plus du glisser-déposer clavier de dnd-kit : plus direct pour réordonner.
+- **Lien magique + code à 6 chiffres dans le même e-mail.** Sur une PWA installée sur iPhone, un lien s'ouvre dans Safari et non dans l'app : le code évite ce piège et reste rapide (saisie automatique `one-time-code`).
+- **Brevo comme SMTP** (pas de domaine pour l'instant). Limite connue : les e-mails envoyés depuis une adresse Gmail via un service tiers peuvent tomber en spam ; l'écran de connexion le signale. Passer à un domaine + Resend le jour venu ne demande qu'un changement de réglage Supabase.
+- **Profil créé par déclencheur** à l'inscription ; l'onboarding ne fait que le compléter.
 
-## Capture rapide
+## Rythme
 
-- **Jours de semaine** : « vendredi » = la prochaine occurrence, aujourd'hui inclus. « vendredi prochain » = le vendredi de la semaine calendaire suivante.
-- **Dates sans année** : prochaine occurrence (aujourd'hui inclus), donc l'année suivante si la date est passée. Le 29/02 attend la prochaine année bissextile.
-- **Pas d'abréviations ambiguës** (« mer », « jeu », « sam »…) qui sont aussi des mots courants : « aller à la mer » ne doit pas créer une date.
-- **Préposition absorbée** : « pour vendredi », « avant lundi », « le 5/11 » retirent aussi le petit mot du titre.
-- **Première date seulement** : les suivantes restent dans le titre.
-- **`@partiel`, `@rendu`… créent une échéance** (et non une tâche). Une échéance exige une date.
-- La palette se ferme et le champ se vide **avant** l'écriture en base, pour pouvoir enchaîner les saisies sans attendre.
+- **Motif au jour près** : une liste de semaines de 5 jours ouvrés. Couvre 3/1, 2/2, 4 j/1 j, 3 j/2 j et le sur-mesure avec un seul modèle. Le week-end prend le mode du vendredi.
+- **Jour d'école par défaut** : vendredi pour 4 j/1 j, jeudi + vendredi pour 3 j/2 j, modifiables à l'onboarding.
+- **Corrections par jour** (`day_overrides`) : un férié, une semaine décalée (5 jours) ou un jour isolé. Une correction identique au motif est supprimée au lieu d'être stockée.
+- **Périodes = suites de semaines de même mode dominant.** Pour un rythme par jours, il n'y a donc pas de « fin de période » chaque semaine : la revue de transition ne se déclenche qu'aux vrais changements (congés, blocs école), et reste accessible à tout moment depuis la palette.
+- **Compte à rebours au jour près** ; en entreprise, on annonce la prochaine école même si un congé s'intercale.
 
-## Notes
+## Onboarding (objectif : moins de 60 secondes)
 
-- Markdown GFM (listes, cases à cocher, tableaux), rendu assaini par DOMPurify ; les liens s'ouvrent dans un nouvel onglet.
-- **Enregistrement automatique** 400 ms après la dernière frappe, et immédiatement en quittant la note.
-- Une note sans titre prend sa première ligne comme titre affiché.
-- Supprimer un cours **détache** ses notes et tâches au lieu de les supprimer (et l'annulation les rattache).
-- Recherche instantanée, insensible à la casse et aux accents, tous les mots requis, titre prioritaire sur le contenu.
+- E-mail → code → **2 écrans** : prénom + école, puis modèle de rythme + date de début avec un aperçu jour par jour en direct. Arrivée directe sur le **calendrier rempli**, avec un bandeau d'explication.
+- L'école est un texte libre en V1 (pas d'annuaire) : zéro friction ; le rattachement formel viendra avec les écoles clientes.
 
-## Revue de transition
+## Mesure d'usage
 
-- Proposée à partir du **vendredi de la dernière semaine** d'une période, et en rattrapage pendant les **2 premiers jours** de la suivante.
-- Aucune revue n'est proposée pour une période terminée **avant la configuration** de l'app.
-- « Reporter » une tâche la date au début de la prochaine période du même type.
-- Le bilan est enregistré (une revue par période) et, par défaut, copié dans les notes.
-- Accessible à tout moment via la palette (« Revue de transition ») : hors fenêtre, elle prépare la fin de la période en cours.
+- **Événements produits par la base** (déclencheurs) : inscription (fin d'onboarding), tâche créée, tâche terminée, revue complétée, lien tuteur créé. Fiables même quand l'app rejoue des écritures faites hors ligne, et impossibles à falsifier depuis le client (la table `events` est fermée en écriture directe).
+- **Connexion** : au plus un événement par jour et par personne (`log_login()` au lancement de l'app).
+- **Anonymisable** : chaque événement porte un identifiant aléatoire (`analytics_id`), pas l'identifiant du compte. À la suppression du compte, le lien disparaît et les événements deviennent anonymes : les statistiques de rétention restent justes.
+- **Rétention à la semaine N** : part d'une cohorte (semaine d'inscription) active entre J+7N et J+7N+6 après sa propre inscription. Une cellule n'est affichée que lorsque la fenêtre est terminée pour toute la cohorte. La rétention globale est pondérée par la taille des cohortes mesurables.
+- **Aucun outil tiers** de mesure.
 
-## Suppression et annulation
+## RGPD
 
-- La suppression est **immédiate** ; le toast « Annuler » (6 s, ou ⌘Z / Ctrl+Z) restaure l'élément tel quel. Plus simple et plus sûr qu'une suppression différée : rien n'est perdu si l'app est fermée pendant le délai, sauf si l'on a voulu supprimer.
-- « Tout effacer » (Réglages) est la seule action irréversible ; elle demande une confirmation explicite.
+- Page Confidentialité courte, publique, en langage clair.
+- **Export** : toutes les données de l'alternant en JSON (Réglages).
+- **Suppression** en un clic (+ une confirmation) : une fonction SQL supprime l'utilisateur d'`auth.users`, la cascade efface tout ; les avis restent mais détachés du compte ; les événements, déjà anonymes, perdent leur dernier lien.
+- Copie locale effacée à la déconnexion et à la suppression.
 
 ## Interface
 
-- **Accent selon le mode** : indigo (École), vert (Entreprise), ambre (Congé / Perso). Appliqué via des variables CSS sur `<html data-mode>`, dans les deux thèmes.
-- **Thème** clair / sombre / système (par défaut), appliqué avant le premier rendu pour éviter un flash.
-- **Mobile** : barre inférieure avec bouton de capture central, zones tactiles de 44 px minimum, fenêtres en feuille depuis le bas. **Ordinateur** : barre latérale.
-- **Animations** de 150 à 200 ms (apparition des fenêtres et toasts), désactivées si l'utilisateur préfère réduire les animations. Pas de flou d'arrière-plan sous les fenêtres (problèmes de rendu observés avec les listes animées).
-- Fenêtres basées sur `<dialog>` natif : piège du focus, Échap et inertie du fond gérés par le navigateur.
-
-## PWA et données
-
-- **Service worker Workbox** (vite-plugin-pwa) en mise à jour automatique ; tous les fichiers sont précachés, y compris les vues chargées à la demande.
-- **Déploiement GitHub Pages** via GitHub Actions (tests puis build), avec `BASE_PATH` pour servir l'app dans un sous-dossier. HTTPS est obligatoire pour installer une PWA sur téléphone.
-- **Sauvegarde JSON versionnée** (`format: "rythme-backup"`, `version: 1`), validée champ par champ à l'import. L'import remplace les données après confirmation, avec un résumé du contenu.
+- Reprise du système de la v0 : accent selon le mode (indigo École, vert Entreprise, ambre Congé), thème système par défaut, palette ⌘K, aide « ? », toasts « Annuler », animations de 150 à 200 ms, zones tactiles de 44 px.
+- **« Donner mon avis »** dans la barre latérale, la barre du haut sur mobile et la palette. Envoyé directement en base (pas de file hors ligne : un message d'erreur clair et le texte conservé si le réseau manque).
+- **Invitation au partage** sur Aujourd'hui tant qu'aucun lien tuteur n'existe, masquable.
+- **/admin** : tuiles de chiffres clés, histogramme des actifs par semaine (une couleur, info-bulle au survol), tableau de rétention en nuances d'une seule teinte, retours reçus.
