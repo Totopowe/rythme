@@ -55,7 +55,7 @@ export const TaskRow = memo(function TaskRow({ task, today, showContext = true, 
       const row = e.currentTarget;
       onMove(e.key === 'ArrowUp' ? -1 : 1);
       // Garde le focus sur la tâche déplacée une fois la liste mise à jour.
-      requestAnimationFrame(() => row.focus());
+      setTimeout(() => row.focus(), 0);
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;

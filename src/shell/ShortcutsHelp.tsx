@@ -7,7 +7,7 @@ export const SHORTCUT_GROUPS: { title: string; items: { keys: string[]; label: s
     title: 'Partout',
     items: [
       { keys: [modKey, 'K'], label: 'Palette : capturer, chercher, agir' },
-      { keys: ['N'], label: 'Nouvelle tâche (champ d’ajout rapide)' },
+      { keys: ['N'], label: 'Nouvelle tâche (nouvelle note dans Notes)' },
       { keys: ['1'], label: 'Aujourd’hui' },
       { keys: ['2'], label: 'Tâches' },
       { keys: ['3'], label: 'Calendrier' },
