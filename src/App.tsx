@@ -17,18 +17,27 @@ import { Shell } from './shell/Shell';
 const CalendarView = lazy(() => import('./features/calendar/CalendarView').then((m) => ({ default: m.CalendarView })));
 const ReviewView = lazy(() => import('./features/review/ReviewView').then((m) => ({ default: m.ReviewView })));
 const SettingsView = lazy(() => import('./features/settings/SettingsView').then((m) => ({ default: m.SettingsView })));
+const SharePage = lazy(() => import('./features/share/SharePage').then((m) => ({ default: m.SharePage })));
+const AdminPage = lazy(() => import('./features/admin/AdminPage').then((m) => ({ default: m.AdminPage })));
+const TutorPage = lazy(() => import('./features/tutor/TutorPage').then((m) => ({ default: m.TutorPage })));
+const PrivacyPage = lazy(() => import('./features/privacy/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const TasksView = lazy(() => import('./features/tasks/TasksView').then((m) => ({ default: m.TasksView })));
 
 export function App() {
   if (!supabaseConfigured) return <ConfigMissing />;
   return (
     <ToastProvider>
-      <Switch>
-        <Route path="/auth/confirm" component={AuthConfirm} />
-        <Route>
-          <AuthGate />
-        </Route>
-      </Switch>
+      <Suspense fallback={null}>
+        <Switch>
+          {/* Pages publiques, sans compte */}
+          <Route path="/t/:token" component={TutorPage} />
+          <Route path="/confidentialite" component={PrivacyPage} />
+          <Route path="/auth/confirm" component={AuthConfirm} />
+          <Route>
+            <AuthGate />
+          </Route>
+        </Switch>
+      </Suspense>
     </ToastProvider>
   );
 }
@@ -88,6 +97,8 @@ function MainApp() {
           <Route path="/calendrier" component={CalendarView} />
           <Route path="/revue" component={ReviewView} />
           <Route path="/reglages" component={SettingsView} />
+          <Route path="/partage" component={SharePage} />
+          <Route path="/admin" component={AdminPage} />
           <Route>
             <EmptyState icon="search" title="Page introuvable" action={<a href="/" className="text-sm font-medium text-accent">Revenir à aujourd’hui</a>}>
               Ce lien ne correspond à aucune page de Rythme.

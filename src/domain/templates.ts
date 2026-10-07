@@ -1,4 +1,4 @@
-import { fullWeek, type DayKind, type WeekPattern } from './rhythm';
+import { fullWeek, type DayKind, type WeekPattern } from './rhythm.js';
 
 /** Modèles de rythme proposés à l'onboarding. */
 export type TemplateId = '3s1s' | '2s2s' | '4j1j' | '3j2j' | 'manuel';

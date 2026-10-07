@@ -1,6 +1,6 @@
-import type { ISODate } from './dates';
-import type { OverrideKind, WeekPattern } from './rhythm';
-import type { TemplateId } from './templates';
+import type { ISODate } from './dates.js';
+import type { OverrideKind, WeekPattern } from './rhythm.js';
+import type { TemplateId } from './templates.js';
 
 /** Contexte d'un élément (tâche, échéance). */
 export type Context = 'ecole' | 'entreprise' | 'perso';

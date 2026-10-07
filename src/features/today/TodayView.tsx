@@ -8,6 +8,7 @@ import { QuickAdd } from '../capture/QuickAdd';
 import { DeadlineRow } from '../deadlines/DeadlineRow';
 import { TaskRow } from '../tasks/TaskRow';
 import { ModeHero } from './ModeHero';
+import { ShareInvite } from './ShareInvite';
 import { ReviewBanner } from '../review/ReviewBanner';
 
 export function TodayView() {
@@ -68,6 +69,8 @@ export function TodayView() {
             </p>
           )}
         </section>
+
+        <ShareInvite />
       </div>
     </div>
   );

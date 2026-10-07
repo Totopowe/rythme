@@ -1,5 +1,5 @@
-import { addDays, diffDays, startOfWeek, weekday, type ISODate } from './dates';
-import type { WeekKind } from './types';
+import { addDays, diffDays, startOfWeek, weekday, type ISODate } from './dates.js';
+import type { WeekKind } from './types.js';
 
 /**
  * Rythme d'alternance au jour près.

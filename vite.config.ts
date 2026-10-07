@@ -13,9 +13,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Rythme — organiseur d’alternance',
+        name: 'Rythme : ton alternance, organisée',
         short_name: 'Rythme',
-        description: 'Organiseur personnel pour étudiant en alternance : école, entreprise, tâches et notes.',
+        description: 'Organise ton alternance entre école et entreprise, et partage ton calendrier avec ton tuteur.',
         lang: 'fr',
         start_url: base,
         scope: base,
@@ -28,11 +28,13 @@ export default defineConfig({
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-        shortcuts: [{ name: 'Capture rapide', short_name: 'Capturer', url: `${base}#/taches` }],
+        shortcuts: [{ name: 'Tâches', short_name: 'Tâches', url: `${base}taches` }],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
         navigateFallback: 'index.html',
+        // Les fonctions serveur (statistiques, flux .ics) ne passent jamais par le cache.
+        navigateFallbackDenylist: [/^\/api\//, /^\/cal\//],
       },
     }),
   ],
