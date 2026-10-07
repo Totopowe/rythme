@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Restore } from '../db/repo';
+import type { Restore } from '../data/actions';
 import { Icon } from './Icon';
 import { cx, isMac } from './ui';
 
@@ -18,7 +18,7 @@ interface ToastItem {
 interface ToastApi {
   show: (message: string, options?: { action?: ToastAction; duration?: number }) => void;
   /** Exécute une suppression et propose « Annuler » pendant quelques secondes. */
-  undoable: (message: string, remove: () => Promise<Restore>) => Promise<void>;
+  undoable: (message: string, remove: () => Restore | Promise<Restore>) => Promise<void>;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);

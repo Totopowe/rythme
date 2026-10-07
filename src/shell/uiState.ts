@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { Deadline, Task } from '../domain/types';
+import type { Absence, Deadline, Task } from '../domain/types';
 import type { ISODate } from '../domain/dates';
 
 export interface UiApi {
@@ -9,6 +9,9 @@ export interface UiApi {
   editTask: (task: Task) => void;
   /** Nouvelle échéance (date pré-remplie) ou modification d'une échéance existante. */
   editDeadline: (deadline: Deadline | { date: ISODate }) => void;
+  /** Nouvelle absence (date de début pré-remplie) ou modification. */
+  editAbsence: (absence: Absence | { startDate: ISODate }) => void;
+  openFeedback: () => void;
 }
 
 export const UiContext = createContext<UiApi | null>(null);

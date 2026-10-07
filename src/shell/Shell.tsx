@@ -8,6 +8,8 @@ import { useAppData } from '../hooks/useAppData';
 import { useHotkeys } from '../hooks/useHotkeys';
 import { DeadlineEditor, type DeadlineDraft } from '../features/deadlines/DeadlineEditor';
 import { TaskEditor } from '../features/tasks/TaskEditor';
+import { AbsenceEditor, type AbsenceDraft } from '../features/absences/AbsenceEditor';
+import { FeedbackDialog } from '../features/feedback/FeedbackDialog';
 import { modeIcon } from '../features/today/ModeHero';
 import { NAV_ITEMS, SETTINGS_PATH } from './routes';
 import { UiContext, useUi, type UiApi } from './uiState';
@@ -20,6 +22,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deadlineDraft, setDeadlineDraft] = useState<DeadlineDraft | null>(null);
+  const [absenceDraft, setAbsenceDraft] = useState<AbsenceDraft | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const openPalette = useCallback((initial = '') => setPalette({ open: true, initial }), []);
   const ui = useMemo<UiApi>(
@@ -28,6 +32,8 @@ export function Shell({ children }: { children: ReactNode }) {
       openHelp: () => setHelpOpen(true),
       editTask: setEditingTask,
       editDeadline: setDeadlineDraft,
+      editAbsence: setAbsenceDraft,
+      openFeedback: () => setFeedbackOpen(true),
     }),
     [openPalette],
   );
@@ -56,6 +62,8 @@ export function Shell({ children }: { children: ReactNode }) {
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <TaskEditor task={editingTask} onClose={() => setEditingTask(null)} />
       <DeadlineEditor draft={deadlineDraft} onClose={() => setDeadlineDraft(null)} />
+      <AbsenceEditor draft={absenceDraft} onClose={() => setAbsenceDraft(null)} />
+      <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </UiContext.Provider>
   );
 }
@@ -76,7 +84,7 @@ function ModePill() {
 
 function Sidebar() {
   const [location] = useLocation();
-  const { openPalette, openHelp } = useUi();
+  const { openPalette, openHelp, openFeedback } = useUi();
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-bg px-3 py-5 md:flex">
@@ -117,6 +125,10 @@ function Sidebar() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-0.5">
+        <button type="button" onClick={openFeedback} className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-sm text-muted transition-colors hover:bg-line/40 hover:text-ink">
+          <Icon name="message" size={17} />
+          Donner mon avis
+        </button>
         <Link
           href={SETTINGS_PATH}
           aria-current={isActive(location, SETTINGS_PATH) ? 'page' : undefined}
@@ -139,13 +151,13 @@ function Sidebar() {
 }
 
 function MobileTopBar() {
-  const { openPalette } = useUi();
+  const { openFeedback } = useUi();
   return (
     <header className="pt-safe sticky top-0 z-20 border-b border-line/60 bg-bg/85 backdrop-blur-md md:hidden">
       <div className="flex h-12 items-center justify-between pl-4 pr-1">
         <ModePill />
         <div className="flex items-center">
-          <IconButton icon="search" label="Chercher ou capturer" onClick={() => openPalette()} />
+          <IconButton icon="message" label="Donner mon avis" onClick={openFeedback} />
           <Link href={SETTINGS_PATH} aria-label="Réglages" className="flex h-11 w-11 items-center justify-center rounded-lg text-muted">
             <Icon name="settings" size={19} />
           </Link>

@@ -1,15 +1,13 @@
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Icon } from '../../components/Icon';
 import { useToast } from '../../components/Toast';
 import { Button, EmptyState, Kbd, SectionTitle, cx, modKey } from '../../components/ui';
-import { db } from '../../db/db';
-import { addNote, saveReview, updateTask } from '../../db/repo';
+import { saveReview, updateTask } from '../../data/actions';
 import { addDays, formatShort } from '../../domain/dates';
 import { pendingTransition, reviewContent, transitionAfter, type Transition } from '../../domain/planning';
 import { nextStartOf, periodAt } from '../../domain/rhythm';
-import { CONTEXT_LABELS, WEEK_KIND_LABELS, contextForWeek, type Task } from '../../domain/types';
+import { CONTEXT_LABELS, WEEK_KIND_LABELS, contextForWeek, type Review, type Task } from '../../domain/types';
 import { useAppData } from '../../hooks/useAppData';
 import { QuickAdd } from '../capture/QuickAdd';
 import { DeadlineRow } from '../deadlines/DeadlineRow';
@@ -23,32 +21,27 @@ export function transitionLabel(t: Transition): string {
 }
 
 export function ReviewView() {
-  const { rhythm, today, settings } = useAppData();
-  const reviews = useLiveQuery(() => db.reviews.toArray(), []);
-  const tasks = useLiveQuery(() => db.tasks.toArray(), []);
-  const deadlines = useLiveQuery(() => db.deadlines.toArray(), []);
+  const { rhythm, today, profile, data } = useAppData();
+  const { reviews, tasks, deadlines } = data;
   const [step, setStep] = useState(0);
   const [summary, setSummary] = useState('');
-  const [alsoNote, setAlsoNote] = useState(true);
   const [, navigate] = useLocation();
   const toast = useToast();
 
   // Hors fenêtre de revue, on prépare quand même la fin de la période en cours.
-  const t = reviews ? pendingTransition(rhythm, today, reviews, settings.setupDate) ?? transitionAfter(rhythm, periodAt(rhythm, today)) : null;
+  const t = pendingTransition(rhythm, today, reviews, profile.createdAt.slice(0, 10)) ?? transitionAfter(rhythm, periodAt(rhythm, today));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         if (step < STEPS.length - 1) setStep(step + 1);
-        else void finish();
+        else finish();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
-
-  if (!t || !tasks || !deadlines || !reviews) return null;
 
   const content = reviewContent(t, tasks, deadlines);
   const alreadyDone = reviews.some((r) => r.periodEnd === t.period.end);
@@ -59,20 +52,12 @@ export function ReviewView() {
   const postpone = (task: Task) => {
     const next = nextStartOf(rhythm, today, t.from);
     const date = next?.date ?? addDays(today, 7);
-    void updateTask(task.id, { dueDate: date });
+    updateTask(task.id, { dueDate: date });
     toast.show(`Reportée au ${formatShort(date)}`);
   };
 
-  async function finish() {
-    if (!t) return;
-    await saveReview({ periodEnd: t.period.end, fromKind: t.from, toKind: t.to, summary });
-    if (alsoNote && summary.trim()) {
-      await addNote({
-        context: fromCtx,
-        title: `Bilan ${WEEK_KIND_LABELS[t.from]} · ${formatShort(t.period.start)} – ${formatShort(t.period.end)}`,
-        body: summary,
-      });
-    }
+  function finish() {
+    saveReview({ periodEnd: t.period.end, fromKind: t.from, toKind: t.to, summary });
     toast.show('Revue terminée. Bonne période !');
     navigate('/');
   }
@@ -186,10 +171,6 @@ export function ReviewView() {
               placeholder={'Ce qui a bien marché…\nCe qui a coincé…\nPour la prochaine fois…'}
               className="w-full rounded-xl border border-line bg-surface p-4 text-[15px] leading-7 outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20"
             />
-            <label className="flex min-h-11 items-center gap-3 text-sm text-muted">
-              <input type="checkbox" checked={alsoNote} onChange={(e) => setAlsoNote(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--accent))]" />
-              Enregistrer aussi ce bilan dans mes notes
-            </label>
           </section>
         )}
       </div>
@@ -208,12 +189,40 @@ export function ReviewView() {
               Continuer <Icon name="arrowRight" size={16} />
             </Button>
           ) : (
-            <Button variant="primary" icon="check" onClick={() => void finish()}>
+            <Button variant="primary" icon="check" onClick={finish}>
               Terminer la revue
             </Button>
           )}
         </div>
       </footer>
+
+      <PastReviews reviews={reviews.filter((r) => r.summary.trim())} />
     </div>
+  );
+}
+
+/** Bilans précédents : relire ses notes de fin de période donne du sens à l'outil. */
+function PastReviews({ reviews }: { reviews: Review[] }) {
+  if (reviews.length === 0) return null;
+  const sorted = [...reviews].sort((a, b) => b.periodEnd.localeCompare(a.periodEnd));
+  return (
+    <section className="mt-12">
+      <SectionTitle count={sorted.length}>Bilans précédents</SectionTitle>
+      <ul className="space-y-2">
+        {sorted.map((r) => (
+          <li key={r.id}>
+            <details className="group rounded-xl border border-line bg-surface px-4 py-3">
+              <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 text-sm">
+                <span className="font-medium">
+                  {WEEK_KIND_LABELS[r.fromKind]} → {WEEK_KIND_LABELS[r.toKind]}
+                </span>
+                <span className="text-xs text-muted">fin le {formatShort(r.periodEnd)}</span>
+              </summary>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted">{r.summary}</p>
+            </details>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

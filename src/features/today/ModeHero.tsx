@@ -1,7 +1,7 @@
 import { Icon, type IconName } from '../../components/Icon';
 import { cx } from '../../components/ui';
 import { capitalize, diffDays, formatCountdown, formatLong, formatShort } from '../../domain/dates';
-import { nextChange, nextStartOf, periodAt } from '../../domain/rhythm';
+import { dayInfo, isDailyRhythm, nextChange, nextStartOf, periodAt } from '../../domain/rhythm';
 import { WEEK_KIND_LABELS, type WeekKind } from '../../domain/types';
 import { useAppData } from '../../hooks/useAppData';
 
@@ -21,6 +21,21 @@ export function ModeHero() {
   // Pour l'entreprise, on annonce l'école même si un congé s'intercale.
   const target = mode === 'entreprise' ? nextStartOf(rhythm, today, 'ecole') : change;
   const dayProgress = (diffDays(period.start, today) + 1) / (diffDays(period.start, period.end) + 1);
+  const daily = isDailyRhythm(rhythm);
+  const info = dayInfo(rhythm, today);
+  const title = info.holiday
+    ? 'Jour férié'
+    : info.weekend
+      ? 'Week-end'
+      : daily
+        ? mode === 'conge'
+          ? 'Journée de congé'
+          : `Journée ${WEEK_KIND_LABELS[mode]}`
+        : mode === 'conge'
+          ? 'Semaine de congé'
+          : `Semaine ${WEEK_KIND_LABELS[mode]}`;
+  // Les rythmes par jours n'ont pas de « période » de plusieurs semaines à suivre.
+  const showProgress = !daily && totalWeeks > 1 && totalWeeks < 20;
 
   return (
     <header className="mb-8">
@@ -31,13 +46,13 @@ export function ModeHero() {
         </span>
         <div>
           <h1 className="text-[26px] font-semibold leading-tight tracking-tight">
-            {mode === 'conge' ? 'Semaine de congé' : `Semaine ${WEEK_KIND_LABELS[mode]}`}
+            {title}
           </h1>
         </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted">
-        {totalWeeks > 1 && totalWeeks < 20 && (
+        {showProgress && (
           <span>
             Semaine {currentWeek} sur {totalWeeks}
           </span>
@@ -52,7 +67,7 @@ export function ModeHero() {
         )}
       </div>
 
-      {totalWeeks < 20 && (
+      {showProgress && (
         <div
           className="mt-4 flex gap-1"
           role="progressbar"

@@ -1,7 +1,5 @@
-import { useLiveQuery } from 'dexie-react-hooks';
 import type { ReactNode } from 'react';
 import { EmptyState, SectionTitle } from '../../components/ui';
-import { db } from '../../db/db';
 import { formatCountdown } from '../../domain/dates';
 import { schoolWakeState, todayBuckets, upcomingDeadlines } from '../../domain/planning';
 import type { Task } from '../../domain/types';
@@ -13,13 +11,10 @@ import { ModeHero } from './ModeHero';
 import { ReviewBanner } from '../review/ReviewBanner';
 
 export function TodayView() {
-  const { today, rhythm, settings, mode } = useAppData();
-  const tasks = useLiveQuery(() => db.tasks.toArray(), []);
-  const deadlines = useLiveQuery(() => db.deadlines.where('date').aboveOrEqual(today).toArray(), [today]);
+  const { today, rhythm, profile, mode, data } = useAppData();
+  const { tasks, deadlines } = data;
 
-  if (!tasks || !deadlines) return null;
-
-  const wake = schoolWakeState(rhythm, today, settings.wakeUpDaysBefore);
+  const wake = schoolWakeState(rhythm, today, profile.wakeUpDays);
   const buckets = todayBuckets(tasks, today, wake);
   const upcoming = upcomingDeadlines(deadlines, today);
   const nothingToday = buckets.today.length === 0 && buckets.overdue.length === 0;

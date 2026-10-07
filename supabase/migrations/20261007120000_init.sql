@@ -119,14 +119,14 @@ create table public.reviews (
 
 -- ---------------------------------------------------------------------------
 -- Liens de partage (tuteur, abonnement .ics)
--- Seule l'empreinte SHA-256 du jeton est stockée : une fuite de la base ne révèle aucun lien.
+-- Jeton aléatoire de 32 caractères (192 bits), lisible par son seul propriétaire, révocable.
 -- ---------------------------------------------------------------------------
 
 create table public.share_links (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
   kind text not null check (kind in ('tutor', 'ics')),
-  token_hash text not null unique check (token_hash ~ '^[0-9a-f]{64}$'),
+  token text not null unique check (token ~ '^[A-Za-z0-9_-]{24,100}$'),
   created_at timestamptz not null default now(),
   revoked_at timestamptz,
   last_viewed_at timestamptz
@@ -345,25 +345,19 @@ begin
 end;
 $$;
 
--- Empreinte d'un jeton de partage.
-create function public.token_hash(token text) returns text
-language sql immutable set search_path = '' as $$
-  select encode(sha256(convert_to(token, 'UTF8')), 'hex');
-$$;
-
 -- Page tuteur : uniquement le rythme, les absences visibles et les échéances choisies.
 -- Ni tâches, ni notes, ni libellés d'absence.
-create function public.get_tutor_view(token text) returns jsonb
+create function public.get_tutor_view(share_token text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   link public.share_links%rowtype;
   result jsonb;
 begin
-  if token is null or char_length(token) < 20 or char_length(token) > 100 then
+  if share_token is null or char_length(share_token) < 24 or char_length(share_token) > 100 then
     return null;
   end if;
   select * into link from public.share_links
-  where token_hash = public.token_hash(token) and kind = 'tutor' and revoked_at is null;
+  where token = share_token and kind = 'tutor' and revoked_at is null;
   if not found then
     return null;
   end if;
@@ -386,16 +380,16 @@ end;
 $$;
 
 -- Flux .ics personnel (jeton connu du seul alternant) : rythme, absences, échéances, tâches datées.
-create function public.get_calendar_feed(token text) returns jsonb
+create function public.get_calendar_feed(share_token text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   link public.share_links%rowtype;
 begin
-  if token is null or char_length(token) < 20 or char_length(token) > 100 then
+  if share_token is null or char_length(share_token) < 24 or char_length(share_token) > 100 then
     return null;
   end if;
   select * into link from public.share_links
-  where token_hash = public.token_hash(token) and kind = 'ics' and revoked_at is null;
+  where token = share_token and kind = 'ics' and revoked_at is null;
   if not found then
     return null;
   end if;

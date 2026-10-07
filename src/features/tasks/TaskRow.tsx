@@ -2,7 +2,7 @@ import { memo, type CSSProperties, type KeyboardEvent, type ReactNode } from 're
 import { Icon } from '../../components/Icon';
 import { useToast } from '../../components/Toast';
 import { ContextDot, cx } from '../../components/ui';
-import { deleteTask, toggleTask } from '../../db/repo';
+import { deleteTask, toggleTask } from '../../data/actions';
 import { formatRelative, type ISODate } from '../../domain/dates';
 import { CONTEXT_LABELS, PRIORITY_LABELS, type Task } from '../../domain/types';
 import { useUi } from '../../shell/uiState';
@@ -68,7 +68,7 @@ export const TaskRow = memo(function TaskRow({ task, today, showContext = true, 
       case ' ':
         e.preventDefault();
         keepFocusNear(e.currentTarget);
-        void toggleTask(task);
+        toggleTask(task);
         break;
       case 'Enter':
       case 'e':
@@ -116,7 +116,7 @@ export const TaskRow = memo(function TaskRow({ task, today, showContext = true, 
         aria-checked={task.done}
         aria-label={task.done ? 'Marquer comme à faire' : 'Marquer comme faite'}
         tabIndex={-1}
-        onClick={() => void toggleTask(task)}
+        onClick={() => toggleTask(task)}
         className="flex h-11 w-11 shrink-0 items-center justify-center"
       >
         <span

@@ -7,11 +7,11 @@ export const SHORTCUT_GROUPS: { title: string; items: { keys: string[]; label: s
     title: 'Partout',
     items: [
       { keys: [modKey, 'K'], label: 'Palette : capturer, chercher, agir' },
-      { keys: ['N'], label: 'Nouvelle tâche (nouvelle note dans Notes)' },
+      { keys: ['N'], label: 'Nouvelle tâche' },
       { keys: ['1'], label: 'Aujourd’hui' },
       { keys: ['2'], label: 'Tâches' },
       { keys: ['3'], label: 'Calendrier' },
-      { keys: ['4'], label: 'Notes' },
+      { keys: ['4'], label: 'Partage' },
       { keys: [','], label: 'Réglages' },
       { keys: ['?'], label: 'Afficher cette aide' },
       { keys: [modKey, 'Z'], label: 'Annuler la dernière suppression' },
@@ -27,13 +27,6 @@ export const SHORTCUT_GROUPS: { title: string; items: { keys: string[]; label: s
       { keys: ['Suppr'], label: 'Supprimer (annulable)' },
       { keys: ['Alt', '↑', '↓'], label: 'Monter / descendre la tâche' },
       { keys: ['F'], label: 'Changer de filtre de contexte' },
-    ],
-  },
-  {
-    title: 'Notes',
-    items: [
-      { keys: ['/'], label: 'Rechercher dans les notes' },
-      { keys: [modKey, 'E'], label: 'Basculer édition / aperçu' },
     ],
   },
   {

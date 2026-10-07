@@ -11,13 +11,11 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo } from 'react';
 import { Icon } from '../../components/Icon';
 import { useToast } from '../../components/Toast';
 import { Button, EmptyState, Segmented, cx } from '../../components/ui';
-import { db } from '../../db/db';
-import { clearCompletedTasks, reorderTasks } from '../../db/repo';
+import { clearCompletedTasks, reorderTasks } from '../../data/actions';
 import type { ISODate } from '../../domain/dates';
 import { reorderWithin } from '../../domain/order';
 import { byOrder, isDormant, schoolWakeState, type SchoolWakeState } from '../../domain/planning';
@@ -44,17 +42,17 @@ const announcements: Announcements = {
 };
 
 export function TasksView() {
-  const { today, rhythm, settings } = useAppData();
+  const { today, rhythm, profile, data } = useAppData();
   const toast = useToast();
   const [filter, setFilter] = usePersistentState<Filter>('tasks-filter', 'all');
   const [showDone, setShowDone] = usePersistentState<boolean>('tasks-show-done', false);
-  const tasks = useLiveQuery(() => db.tasks.toArray(), []);
+  const tasks = data.tasks;
 
   useHotkeys({ f: () => setFilter(FILTERS[(FILTERS.indexOf(filter) + 1) % FILTERS.length]!) });
 
-  const wake = schoolWakeState(rhythm, today, settings.wakeUpDaysBefore);
+  const wake = schoolWakeState(rhythm, today, profile.wakeUpDays);
   const { open, done, allOpenIds, counts } = useMemo(() => {
-    const all = tasks ?? [];
+    const all = tasks;
     const openAll = all.filter((t) => !t.done).sort(byOrder);
     const counts = Object.fromEntries(CONTEXTS.map((c) => [c, openAll.filter((t) => t.context === c).length])) as Record<Context, number>;
     const match = (t: Task) => filter === 'all' || t.context === filter;
@@ -66,10 +64,8 @@ export function TasksView() {
     };
   }, [tasks, filter]);
 
-  if (!tasks) return null;
-
   const onReorder = (fromId: string, toId: string) => {
-    void reorderTasks(reorderWithin(allOpenIds, open.map((t) => t.id), fromId, toId));
+    reorderTasks(reorderWithin(allOpenIds, open.map((t) => t.id), fromId, toId));
   };
 
   return (

@@ -8,9 +8,8 @@ let bob: string;
 const OWNED_TABLES = ['rhythms', 'day_overrides', 'absences', 'tasks', 'deadlines', 'reviews', 'share_links'];
 const ALL_TABLES = ['schools', 'cohorts', 'profiles', ...OWNED_TABLES, 'feedback', 'events'];
 
-/** Jeton de partage factice et son empreinte, calculée comme côté client. */
-const TOKEN = 'jeton-de-test-suffisamment-long-0001';
-const ICS_TOKEN = 'flux-ics-personnel-assez-long-0001';
+const TOKEN = 'jeton_de_test_suffisamment_long_0001';
+const ICS_TOKEN = 'flux_ics_personnel_assez_long_0001';
 
 beforeAll(async () => {
   t = await createTestDb();
@@ -25,7 +24,7 @@ beforeAll(async () => {
   await t.as(alice, `insert into absences (start_date, end_date, kind, visible_to_tutor) values ('2026-11-10', '2026-11-10', 'maladie', false)`);
   await t.as(alice, `insert into day_overrides (date, kind) values ('2026-11-11', 'ferie')`);
   await t.as(alice, `insert into reviews (period_end, from_kind, to_kind, summary) values ('2026-10-04', 'ecole', 'entreprise', 'Bilan privé')`);
-  await t.as(alice, `insert into share_links (kind, token_hash) values ('ics', encode(sha256(convert_to($1, 'UTF8')), 'hex'))`, [ICS_TOKEN]);
+  await t.as(alice, `insert into share_links (kind, token) values ('ics', $1)`, [ICS_TOKEN]);
 });
 
 describe('création de compte', () => {
@@ -104,7 +103,7 @@ describe('champs protégés', () => {
 
 describe('page tuteur', () => {
   beforeAll(async () => {
-    await t.as(alice, `insert into share_links (kind, token_hash) values ('tutor', encode(sha256(convert_to($1, 'UTF8')), 'hex'))`, [TOKEN]);
+    await t.as(alice, `insert into share_links (kind, token) values ('tutor', $1)`, [TOKEN]);
   });
 
   it('n’expose que le rythme, les absences visibles (sans libellé) et les échéances choisies', async () => {
@@ -121,26 +120,30 @@ describe('page tuteur', () => {
     expect(json).not.toContain(alice);
   });
 
+  it('Bob ne peut pas lire le jeton d’Alice', async () => {
+    expect(await t.as(bob, 'select token from share_links')).toEqual([]);
+  });
+
   it('renvoie null pour un jeton inconnu, trop court ou révoqué', async () => {
-    expect((await t.as<{ v: unknown }>('anon', 'select get_tutor_view($1) as v', ['inconnu-mais-assez-long-pour-passer']))[0]!.v).toBeNull();
+    expect((await t.as<{ v: unknown }>('anon', 'select get_tutor_view($1) as v', ['inconnu_mais_assez_long_pour_passer']))[0]!.v).toBeNull();
     expect((await t.as<{ v: unknown }>('anon', 'select get_tutor_view($1) as v', ['court']))[0]!.v).toBeNull();
     await t.as(alice, `update share_links set revoked_at = now() where kind = 'tutor'`);
     expect((await t.as<{ v: unknown }>('anon', 'select get_tutor_view($1) as v', [TOKEN]))[0]!.v).toBeNull();
   });
 
   it('un jeton tuteur ne donne pas accès au flux .ics complet', async () => {
-    await t.as(alice, `insert into share_links (kind, token_hash) values ('tutor', encode(sha256(convert_to($1, 'UTF8')), 'hex'))`, [TOKEN + 'b']);
+    await t.as(alice, `insert into share_links (kind, token) values ('tutor', $1)`, [TOKEN + 'b']);
     expect((await t.as<{ v: unknown }>('anon', 'select get_calendar_feed($1) as v', [TOKEN + 'b']))[0]!.v).toBeNull();
   });
 
   it('un seul lien actif par type', async () => {
     await expect(
-      t.as(alice, `insert into share_links (kind, token_hash) values ('tutor', encode(sha256(convert_to('autre-jeton-assez-long-xyz', 'UTF8')), 'hex'))`),
+      t.as(alice, `insert into share_links (kind, token) values ('tutor', 'autre_jeton_assez_long_xyz_000')`),
     ).rejects.toThrow(/duplicate key/);
   });
 
   it('un lien ne peut être modifié que pour être révoqué', async () => {
-    await expect(t.as(alice, `update share_links set token_hash = repeat('a', 64)`)).rejects.toThrow(/permission denied/);
+    await expect(t.as(alice, `update share_links set token = repeat('a', 40)`)).rejects.toThrow(/permission denied/);
   });
 });
 

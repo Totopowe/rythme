@@ -1,13 +1,11 @@
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Icon, type IconName } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
 import { Kbd, cx } from '../components/ui';
-import { downloadBackup } from '../db/backup';
-import { db } from '../db/db';
-import { addNote, saveSettings } from '../db/repo';
+import { downloadMyData } from '../data/exportData';
+import { saveProfile } from '../data/actions';
 import { formatRelative } from '../domain/dates';
 import { parseCapture } from '../domain/quickCapture';
 import { matchScore, queryTerms, search } from '../domain/search';
@@ -34,7 +32,7 @@ export function CommandPalette({ open, initial, onClose }: Props) {
 
 interface Item {
   id: string;
-  group: 'Créer' | 'Actions' | 'Aller à' | 'Tâches' | 'Notes';
+  group: 'Créer' | 'Actions' | 'Aller à' | 'Tâches';
   label: string;
   icon: IconName;
   hint?: string;
@@ -45,7 +43,7 @@ interface Item {
 }
 
 function PaletteBody({ initial, onClose }: { initial: string; onClose: () => void }) {
-  const { today, defaultContext, settings } = useAppData();
+  const { today, defaultContext, profile, data } = useAppData();
   const ui = useUi();
   const toast = useToast();
   const [, navigate] = useLocation();
@@ -54,30 +52,20 @@ function PaletteBody({ initial, onClose }: { initial: string; onClose: () => voi
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const tasks = useLiveQuery(() => db.tasks.filter((t) => !t.done).toArray(), []) ?? [];
-  const notes = useLiveQuery(() => db.notes.toArray(), []) ?? [];
+  const tasks = useMemo(() => data.tasks.filter((t) => !t.done), [data.tasks]);
 
   const parsed = parseCapture(text, today);
   const query = text.trim();
 
   const commands = useMemo<Item[]>(() => {
     const go = (path: string) => () => navigate(path);
-    const nextTheme = settings.theme === 'dark' ? 'light' : 'dark';
+    const nextTheme = profile.theme === 'dark' ? 'light' : 'dark';
     return [
       ...NAV_ITEMS.map((n) => ({ id: `go-${n.path}`, group: 'Aller à' as const, label: n.label, icon: n.icon, hint: n.key, run: go(n.path) })),
       { id: 'go-settings', group: 'Aller à', label: 'Réglages', icon: 'settings', hint: ',', keywords: 'rythme parametres', run: go(SETTINGS_PATH) },
       { id: 'go-review', group: 'Aller à', label: 'Revue de transition', icon: 'refresh', keywords: 'bilan periode', run: go(REVIEW_PATH) },
-      {
-        id: 'new-note',
-        group: 'Actions',
-        label: 'Nouvelle note',
-        icon: 'note',
-        keywords: 'creer ecrire markdown',
-        run: async () => {
-          const n = await addNote({ context: defaultContext });
-          navigate(`/notes/${n.id}`);
-        },
-      },
+      { id: 'feedback', group: 'Actions', label: 'Donner mon avis', icon: 'message', keywords: 'retour bug idee feedback', run: () => ui.openFeedback() },
+      { id: 'new-absence', group: 'Actions', label: 'Nouvelle absence', icon: 'leaf', keywords: 'conge vacances maladie examen', run: () => ui.editAbsence({ startDate: today }) },
       { id: 'new-deadline', group: 'Actions', label: 'Nouvelle échéance', icon: 'alarm', keywords: 'partiel rendu examen memoire reunion', run: () => ui.editDeadline({ date: today }) },
       {
         id: 'theme',
@@ -85,12 +73,12 @@ function PaletteBody({ initial, onClose }: { initial: string; onClose: () => voi
         label: nextTheme === 'dark' ? 'Passer en mode sombre' : 'Passer en mode clair',
         icon: nextTheme === 'dark' ? 'moon' : 'sun',
         keywords: 'theme apparence couleur',
-        run: () => saveSettings({ theme: nextTheme }),
+        run: () => saveProfile({ theme: nextTheme }),
       },
-      { id: 'export', group: 'Actions', label: 'Exporter mes données (JSON)', icon: 'download', keywords: 'sauvegarde backup', run: () => downloadBackup() },
+      { id: 'export', group: 'Actions', label: 'Exporter mes données (JSON)', icon: 'download', keywords: 'sauvegarde backup', run: () => downloadMyData() },
       { id: 'help', group: 'Actions', label: 'Raccourcis clavier', icon: 'keyboard', hint: '?', keywords: 'aide clavier', run: () => ui.openHelp() },
     ];
-  }, [navigate, settings.theme, defaultContext, ui, today]);
+  }, [navigate, profile.theme, ui, today]);
 
   const items = useMemo<Item[]>(() => {
     if (!query) return commands;
@@ -104,7 +92,7 @@ function PaletteBody({ initial, onClose }: { initial: string; onClose: () => voi
         icon: parsed.deadlineKind ? 'alarm' : 'plus',
         validate: () => (parsed.deadlineKind && !parsed.dueDate ? 'Une échéance a besoin d’une date (ex. « vendredi », « 12/11 »).' : null),
         run: async () => {
-          const outcome = await commitCapture(parsed, ctx, today);
+          const outcome = commitCapture(parsed, ctx, today);
           toast.show(outcome.message);
         },
       });
@@ -123,20 +111,8 @@ function PaletteBody({ initial, onClose }: { initial: string; onClose: () => voi
           run: () => ui.editTask(t),
         })),
     );
-    result.push(
-      ...search(notes, query, (n) => [n.title, n.body])
-        .slice(0, 5)
-        .map<Item>((n) => ({
-          id: `note-${n.id}`,
-          group: 'Notes',
-          label: n.title || 'Sans titre',
-          icon: 'note',
-          hint: CONTEXT_LABELS[n.context],
-          run: () => navigate(`/notes/${n.id}`),
-        })),
-    );
     return result;
-  }, [query, parsed, commands, tasks, notes, defaultContext, today, toast, ui, navigate]);
+  }, [query, parsed, commands, tasks, defaultContext, today, toast, ui]);
 
   useEffect(() => setSelected(0), [query]);
 

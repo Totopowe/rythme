@@ -28,13 +28,13 @@ export function QuickAdd({ context, placeholder = 'Ajouter une tâche…', class
 
   useHotkeys({ n: () => inputRef.current?.focus() });
 
-  const submit = async () => {
+  const submit = () => {
     if (!parsed.title) return setError('Ajoute un titre.');
     if (parsed.deadlineKind && !parsed.dueDate) return setError('Une échéance a besoin d’une date (ex. « vendredi », « 12/11 »).');
     // On vide le champ avant l'écriture pour pouvoir enchaîner les saisies sans attendre.
     setText('');
     setError(null);
-    const outcome = await commitCapture(parsed, fallback, today);
+    const outcome = commitCapture(parsed, fallback, today);
     toast.show(outcome.message);
   };
 
@@ -52,7 +52,7 @@ export function QuickAdd({ context, placeholder = 'Ajouter une tâche…', class
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
-              void submit();
+              submit();
             } else if (e.key === 'Escape') {
               setText('');
               inputRef.current?.blur();

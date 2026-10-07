@@ -1,7 +1,5 @@
-import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'wouter';
 import { Icon } from '../../components/Icon';
-import { db } from '../../db/db';
 import { formatShort } from '../../domain/dates';
 import { pendingTransition } from '../../domain/planning';
 import { WEEK_KIND_LABELS } from '../../domain/types';
@@ -10,10 +8,8 @@ import { REVIEW_PATH } from '../../shell/routes';
 
 /** Invitation à faire la revue en fin de période (ou en rattrapage au début de la suivante). */
 export function ReviewBanner() {
-  const { rhythm, today, settings } = useAppData();
-  const reviews = useLiveQuery(() => db.reviews.toArray(), []);
-  if (!reviews) return null;
-  const t = pendingTransition(rhythm, today, reviews, settings.setupDate);
+  const { rhythm, today, profile, data } = useAppData();
+  const t = pendingTransition(rhythm, today, data.reviews, profile.createdAt.slice(0, 10));
   if (!t) return null;
   const ended = t.period.end < today;
 

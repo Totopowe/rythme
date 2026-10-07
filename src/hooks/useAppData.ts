@@ -1,39 +1,30 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { createContext, useContext, useMemo } from 'react';
-import { db } from '../db/db';
+import { useMemo } from 'react';
+import { useData } from '../data/store';
+import type { UserData } from '../data/model';
 import type { ISODate } from '../domain/dates';
 import { createRhythm, modeAt, type Rhythm } from '../domain/rhythm';
-import { contextForWeek, type Context, type Settings, type WeekKind } from '../domain/types';
+import { contextForWeek, type Context, type Profile, type RhythmConfig, type WeekKind } from '../domain/types';
 import { useToday } from './useToday';
 
 export interface AppData {
-  settings: Settings;
+  profile: Profile;
+  rhythmConfig: RhythmConfig;
   rhythm: Rhythm;
   today: ISODate;
   mode: WeekKind;
-  /** Contexte par défaut des nouveaux éléments (celui de la semaine en cours). */
+  /** Contexte par défaut des nouveaux éléments (celui du jour). */
   defaultContext: Context;
+  data: UserData;
 }
 
-/** Chargement initial : `undefined` tant que IndexedDB n'a pas répondu, `null` si aucun réglage. */
-export function useLoadAppData(): AppData | null | undefined {
-  const settings = useLiveQuery(async () => (await db.settings.get('main')) ?? null, []);
-  const overrides = useLiveQuery(() => db.weekOverrides.toArray(), []);
-  const today = useToday();
-
-  return useMemo(() => {
-    if (settings === undefined || overrides === undefined) return undefined;
-    if (settings === null || !settings.onboarded) return null;
-    const rhythm = createRhythm(settings.startDate, settings.pattern, overrides);
-    const mode = modeAt(rhythm, today);
-    return { settings, rhythm, today, mode, defaultContext: contextForWeek(mode) };
-  }, [settings, overrides, today]);
-}
-
-export const AppDataContext = createContext<AppData | null>(null);
-
+/** Données dérivées utilisées partout (une fois l'onboarding terminé). */
 export function useAppData(): AppData {
-  const data = useContext(AppDataContext);
-  if (!data) throw new Error('useAppData doit être utilisé après la configuration.');
-  return data;
+  const data = useData();
+  const today = useToday();
+  return useMemo(() => {
+    if (!data.rhythm) throw new Error('Rythme non configuré.');
+    const rhythm = createRhythm(data.rhythm.startDate, data.rhythm.pattern, data.overrides);
+    const mode = modeAt(rhythm, today);
+    return { profile: data.profile, rhythmConfig: data.rhythm, rhythm, today, mode, defaultContext: contextForWeek(mode), data };
+  }, [data, today]);
 }

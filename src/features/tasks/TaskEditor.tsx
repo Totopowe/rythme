@@ -1,10 +1,8 @@
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
 import { Button, Field, Kbd, Segmented, cx, inputClass, modKey } from '../../components/ui';
-import { db } from '../../db/db';
-import { deleteTask, updateTask } from '../../db/repo';
+import { deleteTask, updateTask } from '../../data/actions';
 import { addDays, isISODate, startOfWeek } from '../../domain/dates';
 import { CONTEXTS, CONTEXT_LABELS, PRIORITY_LABELS, type Context, type Priority, type Task } from '../../domain/types';
 import { useAppData } from '../../hooks/useAppData';
@@ -28,30 +26,22 @@ export function TaskEditor({ task, onClose }: Props) {
 function TaskForm({ task, onClose }: { task: Task; onClose: () => void }) {
   const { today } = useAppData();
   const toast = useToast();
-  const courses = useLiveQuery(() => db.courses.toArray(), []) ?? [];
   const [title, setTitle] = useState(task.title);
   const [context, setContext] = useState<Context>(task.context);
   const [dueDate, setDueDate] = useState<string>(task.dueDate ?? '');
   const [priority, setPriority] = useState<Priority>(task.priority);
-  const [courseId, setCourseId] = useState<string>(task.courseId ?? '');
 
-  const save = async (e?: FormEvent) => {
+  const save = (e?: FormEvent) => {
     e?.preventDefault();
     if (!title.trim()) return;
-    await updateTask(task.id, {
-      title: title.trim(),
-      context,
-      dueDate: isISODate(dueDate) ? dueDate : null,
-      priority,
-      courseId: courseId || null,
-    });
+    updateTask(task.id, { title: title.trim(), context, dueDate: isISODate(dueDate) ? dueDate : null, priority });
     onClose();
   };
 
   // ⌘/Ctrl+Entrée enregistre depuis n'importe quel champ.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void save();
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -63,8 +53,6 @@ function TaskForm({ task, onClose }: { task: Task; onClose: () => void }) {
     { label: 'Lundi prochain', value: addDays(startOfWeek(today), 7) },
     { label: 'Aucune', value: '' },
   ];
-
-  const contextCourses = courses.filter((c) => c.context === context);
 
   return (
     <form onSubmit={save} className="flex flex-col">
@@ -110,18 +98,6 @@ function TaskForm({ task, onClose }: { task: Task; onClose: () => void }) {
           />
         </Field>
 
-        {contextCourses.length > 0 && (
-          <Field label="Cours ou projet" htmlFor="task-course">
-            <select id="task-course" value={courseId} onChange={(e) => setCourseId(e.target.value)} className={inputClass}>
-              <option value="">Aucun</option>
-              {contextCourses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        )}
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-line px-5 py-3">

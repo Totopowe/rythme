@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
 import { Button, Field, Segmented, cx, inputClass } from '../../components/ui';
-import { addDeadline, deleteDeadline, updateDeadline } from '../../db/repo';
+import { addDeadline, deleteDeadline, updateDeadline } from '../../data/actions';
 import { isISODate, type ISODate } from '../../domain/dates';
 import { DEADLINE_KINDS, DEADLINE_KIND_LABELS, type Context, type Deadline, type DeadlineKind } from '../../domain/types';
 import { useAppData } from '../../hooks/useAppData';
@@ -34,14 +34,15 @@ function DeadlineForm({ draft, onClose }: { draft: DeadlineDraft; onClose: () =>
   const [context, setContext] = useState<Context>(existing?.context ?? (defaultContext === 'perso' ? 'ecole' : defaultContext));
   const [kind, setKind] = useState<DeadlineKind>(existing?.kind ?? 'rendu');
   const [notes, setNotes] = useState(existing?.notes ?? '');
+  const [visibleToTutor, setVisibleToTutor] = useState(existing?.visibleToTutor ?? false);
   const valid = title.trim() !== '' && isISODate(date);
 
-  const save = async (e: FormEvent) => {
+  const save = (e: FormEvent) => {
     e.preventDefault();
     if (!valid) return;
-    const data = { title: title.trim(), date, context, kind, notes };
-    if (existing) await updateDeadline(existing.id, data);
-    else await addDeadline(data);
+    const data = { title: title.trim(), date, context, kind, notes, visibleToTutor };
+    if (existing) updateDeadline(existing.id, data);
+    else addDeadline(data);
     onClose();
   };
 
@@ -91,6 +92,18 @@ function DeadlineForm({ draft, onClose }: { draft: DeadlineDraft; onClose: () =>
             className={cx(inputClass, 'py-2')}
           />
         </Field>
+        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-lg border border-line px-3 py-2">
+          <span>
+            <span className="block text-sm font-medium">Visible par mon tuteur</span>
+            <span className="block text-xs text-muted">Affichée sur ta page de partage (titre, type et date uniquement).</span>
+          </span>
+          <input
+            type="checkbox"
+            checked={visibleToTutor}
+            onChange={(e) => setVisibleToTutor(e.target.checked)}
+            className="h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
+          />
+        </label>
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-line px-5 py-3">
         {existing ? (

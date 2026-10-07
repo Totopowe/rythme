@@ -1,10 +1,12 @@
 import type { ISODate } from './dates';
+import type { OverrideKind, WeekPattern } from './rhythm';
+import type { TemplateId } from './templates';
 
-/** Contexte d'un élément (tâche, note, échéance). */
+/** Contexte d'un élément (tâche, échéance). */
 export type Context = 'ecole' | 'entreprise' | 'perso';
 export const CONTEXTS: readonly Context[] = ['ecole', 'entreprise', 'perso'];
 
-/** Type d'une semaine dans le calendrier d'alternance. */
+/** Mode d'un jour ou d'une semaine dans le calendrier d'alternance. */
 export type WeekKind = 'ecole' | 'entreprise' | 'conge';
 export const WEEK_KINDS: readonly WeekKind[] = ['ecole', 'entreprise', 'conge'];
 
@@ -13,26 +15,44 @@ export type Priority = 0 | 1 | 2 | 3;
 export type DeadlineKind = 'partiel' | 'rendu' | 'memoire' | 'reunion' | 'autre';
 export const DEADLINE_KINDS: readonly DeadlineKind[] = ['partiel', 'rendu', 'memoire', 'reunion', 'autre'];
 
+export type AbsenceKind = 'conge' | 'examen' | 'maladie' | 'autre';
+export const ABSENCE_KINDS: readonly AbsenceKind[] = ['conge', 'examen', 'maladie', 'autre'];
+
 export type ThemePreference = 'system' | 'light' | 'dark';
 
-export interface Settings {
-  id: 'main';
-  /** Lundi de la première semaine du motif. */
-  startDate: ISODate;
-  /** Motif répété, une entrée par semaine. */
-  pattern: WeekKind[];
-  /** Nombre de jours avant une semaine d'école où les tâches École se réveillent. */
-  wakeUpDaysBefore: number;
+export type ShareKind = 'tutor' | 'ics';
+
+export interface Profile {
+  id: string;
+  firstName: string;
+  schoolName: string;
   theme: ThemePreference;
-  onboarded: boolean;
-  /** Date de configuration : aucune revue n'est proposée pour les périodes antérieures. */
-  setupDate?: ISODate;
+  /** Nombre de jours avant l'école où les tâches École se réveillent. */
+  wakeUpDays: number;
+  onboardedAt: string | null;
+  createdAt: string;
 }
 
-export interface WeekOverride {
-  /** Lundi de la semaine concernée. */
-  weekStart: ISODate;
-  kind: WeekKind;
+export interface RhythmConfig {
+  /** Lundi de la première semaine du motif. */
+  startDate: ISODate;
+  pattern: WeekPattern[];
+  template: TemplateId;
+}
+
+export interface DayOverride {
+  date: ISODate;
+  kind: OverrideKind;
+}
+
+export interface Absence {
+  id: string;
+  startDate: ISODate;
+  endDate: ISODate;
+  kind: AbsenceKind;
+  label: string;
+  visibleToTutor: boolean;
+  createdAt: string;
 }
 
 export interface Task {
@@ -45,7 +65,6 @@ export interface Task {
   order: number;
   done: boolean;
   doneAt: string | null;
-  courseId: string | null;
   createdAt: string;
 }
 
@@ -56,25 +75,9 @@ export interface Deadline {
   context: Context;
   kind: DeadlineKind;
   notes: string;
+  /** Visible sur la page du tuteur (non par défaut). */
+  visibleToTutor: boolean;
   createdAt: string;
-}
-
-export interface Course {
-  id: string;
-  name: string;
-  context: Context;
-  createdAt: string;
-}
-
-export interface Note {
-  id: string;
-  title: string;
-  body: string;
-  context: Context;
-  courseId: string | null;
-  pinned: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface Review {
@@ -85,6 +88,14 @@ export interface Review {
   toKind: WeekKind;
   summary: string;
   createdAt: string;
+}
+
+export interface ShareLink {
+  id: string;
+  kind: ShareKind;
+  createdAt: string;
+  revokedAt: string | null;
+  lastViewedAt: string | null;
 }
 
 export const CONTEXT_LABELS: Record<Context, string> = {
@@ -107,6 +118,13 @@ export const DEADLINE_KIND_LABELS: Record<DeadlineKind, string> = {
   autre: 'Échéance',
 };
 
+export const ABSENCE_KIND_LABELS: Record<AbsenceKind, string> = {
+  conge: 'Congés',
+  examen: 'Examen',
+  maladie: 'Maladie',
+  autre: 'Absence',
+};
+
 export const PRIORITY_LABELS: Record<Priority, string> = {
   0: 'Aucune',
   1: 'Basse',
@@ -114,7 +132,7 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   3: 'Haute',
 };
 
-/** Contexte par défaut associé à un type de semaine. */
+/** Contexte par défaut associé à un mode. */
 export function contextForWeek(kind: WeekKind): Context {
   return kind === 'conge' ? 'perso' : kind;
 }

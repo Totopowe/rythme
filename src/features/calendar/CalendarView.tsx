@@ -1,22 +1,32 @@
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
+import { useSearch } from 'wouter';
 import { Icon } from '../../components/Icon';
 import { Button, IconButton, SectionTitle, Segmented, cx } from '../../components/ui';
-import { db } from '../../db/db';
-import { setWeekKind } from '../../db/repo';
-import { addDays, capitalize, dayOf, formatMonthYear, formatShort, isoWeekNumber, monthOf, startOfWeek, type ISODate } from '../../domain/dates';
-import { academicYearStart, academicYearWeeks, type WeekInfo } from '../../domain/rhythm';
-import { WEEK_KINDS, WEEK_KIND_LABELS, type Deadline, type Task, type WeekKind } from '../../domain/types';
+import { setDayKind, setWeekKind } from '../../data/actions';
+import {
+  addDays,
+  capitalize,
+  dayOf,
+  formatMonthYear,
+  formatShort,
+  formatWeekdayShort,
+  isoWeekNumber,
+  monthOf,
+  startOfWeek,
+  type ISODate,
+} from '../../domain/dates';
+import { academicYearStart, academicYearWeeks, cycleKind, dayInfo, type DayKind, type WeekInfo } from '../../domain/rhythm';
+import { ABSENCE_KIND_LABELS, WEEK_KINDS, WEEK_KIND_LABELS, type Absence, type Deadline, type Task } from '../../domain/types';
 import { useAppData } from '../../hooks/useAppData';
 import { useHotkeys } from '../../hooks/useHotkeys';
+import { useUi } from '../../shell/uiState';
 import { DeadlineRow } from '../deadlines/DeadlineRow';
 import { Legend, weekKindBg } from '../onboarding/RhythmEditor';
 import { TaskRow } from '../tasks/TaskRow';
-import { useUi } from '../../shell/uiState';
 
 const KIND_OPTIONS = WEEK_KINDS.map((k) => ({ value: k, label: WEEK_KIND_LABELS[k] }));
 
-const weekKindCell: Record<WeekKind, string> = {
+const weekKindCell: Record<DayKind, string> = {
   ecole: 'bg-ecole/15 text-ecole hover:bg-ecole/25',
   entreprise: 'bg-entreprise/10 text-entreprise hover:bg-entreprise/20',
   conge: 'bg-perso/15 text-perso hover:bg-perso/25',
@@ -27,12 +37,17 @@ function monthKey(weekStart: ISODate): string {
   return addDays(weekStart, 3).slice(0, 7);
 }
 
+function overlapsWeek(a: Absence, weekStart: ISODate): boolean {
+  return a.startDate <= addDays(weekStart, 6) && a.endDate >= weekStart;
+}
+
 export function CalendarView() {
-  const { rhythm, today, settings } = useAppData();
+  const { rhythm, today, data } = useAppData();
+  const welcome = useSearch().includes('bienvenue');
   const [year, setYear] = useState(() => academicYearStart(today));
   const [selected, setSelected] = useState<ISODate>(() => startOfWeek(today));
-  const deadlines = useLiveQuery(() => db.deadlines.toArray(), []) ?? [];
-  const tasks = useLiveQuery(() => db.tasks.filter((t) => !t.done && t.dueDate !== null).toArray(), []) ?? [];
+  const { deadlines, absences } = data;
+  const datedTasks = useMemo(() => data.tasks.filter((t) => !t.done && t.dueDate !== null), [data.tasks]);
 
   const weeks = useMemo(() => academicYearWeeks(rhythm, year), [rhythm, year]);
   const currentWeek = startOfWeek(today);
@@ -83,18 +98,26 @@ export function CalendarView() {
     },
   });
 
-  const counts = WEEK_KINDS.map((k) => ({ kind: k, n: weeks.filter((w) => w.kind === k).length }));
+  const schoolDays = weeks.reduce((n, w) => n + w.days.filter((d) => d === 'ecole').length, 0);
+  const companyDays = weeks.reduce((n, w) => n + w.days.filter((d) => d === 'entreprise').length, 0);
 
   return (
     <div className="mx-auto max-w-5xl">
+      {welcome && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-accent/30 bg-accent-soft px-4 py-3.5 text-sm">
+          <Icon name="sparkle" size={18} className="mt-0.5 shrink-0 text-accent" />
+          <p>
+            <strong className="font-semibold">Ton année est prête.</strong> Clique sur une semaine pour corriger un jour férié ou une semaine décalée, ou ajouter
+            une absence. Tout le reste se passe dans <a href="/" className="font-medium text-accent underline-offset-2 hover:underline">Aujourd’hui</a>.
+          </p>
+        </div>
+      )}
+
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[26px] font-semibold tracking-tight">Calendrier</h1>
           <p className="mt-1 text-sm text-muted">
-            {counts
-              .filter((c) => c.n > 0)
-              .map((c) => `${c.n} sem. ${WEEK_KIND_LABELS[c.kind].toLowerCase()}`)
-              .join(' · ')}
+            {schoolDays} jours d’école · {companyDays} jours en entreprise
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -113,7 +136,7 @@ export function CalendarView() {
 
       <YearStrip weeks={weeks} selected={selected} currentWeek={currentWeek} deadlinesByWeek={deadlinesByWeek} onSelect={setSelected} />
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
           {months.map((m) => (
             <section key={m.key} aria-label={formatMonthYear(`${m.key}-01`)}>
@@ -126,6 +149,7 @@ export function CalendarView() {
                     selected={w.weekStart === selected}
                     isCurrent={w.weekStart === currentWeek}
                     deadlines={deadlinesByWeek.get(w.weekStart) ?? []}
+                    hasAbsence={absences.some((a) => overlapsWeek(a, w.weekStart))}
                     onSelect={() => setSelected(w.weekStart)}
                   />
                 ))}
@@ -136,12 +160,11 @@ export function CalendarView() {
 
         <WeekDetail
           key={selected}
-          weekStart={selected}
           week={weeks.find((w) => w.weekStart === selected)}
           deadlines={deadlinesByWeek.get(selected) ?? []}
-          tasks={tasks.filter((t) => startOfWeek(t.dueDate!) === selected)}
+          absences={absences.filter((a) => overlapsWeek(a, selected))}
+          tasks={datedTasks.filter((t) => startOfWeek(t.dueDate!) === selected)}
           today={today}
-          onChangeKind={(kind) => void setWeekKind(settings, selected, kind)}
         />
       </div>
     </div>
@@ -156,14 +179,14 @@ interface StripProps {
   onSelect: (week: ISODate) => void;
 }
 
-/** Frise annuelle compacte : une barre par semaine. */
+/** Frise annuelle compacte : une barre par semaine, découpée par jour si la semaine est mixte. */
 function YearStrip({ weeks, selected, currentWeek, deadlinesByWeek, onSelect }: StripProps) {
   return (
     <div className="min-w-0 rounded-xl border border-line bg-surface p-4">
       <div className="flex items-end gap-[2px]" role="group" aria-label="Frise de l’année">
         {weeks.map((w) => {
-          const hasDeadline = deadlinesByWeek.has(w.weekStart);
           const newMonth = dayOf(addDays(w.weekStart, 3)) <= 7;
+          const isSelected = w.weekStart === selected;
           return (
             <button
               key={w.weekStart}
@@ -173,14 +196,17 @@ function YearStrip({ weeks, selected, currentWeek, deadlinesByWeek, onSelect }: 
               aria-label={`Semaine du ${formatShort(w.weekStart)} : ${WEEK_KIND_LABELS[w.kind]}`}
               className="group relative flex h-14 min-w-0 flex-1 flex-col items-center justify-end"
             >
-              {hasDeadline && <span className="absolute top-0 h-1.5 w-1.5 rounded-full bg-danger" />}
+              {deadlinesByWeek.has(w.weekStart) && <span className="absolute top-0 h-1.5 w-1.5 rounded-full bg-danger" />}
               <span
                 className={cx(
-                  'w-full rounded-[3px] transition-all',
-                  weekKindBg[w.kind],
-                  w.weekStart === selected ? 'h-10 ring-2 ring-ink/70 ring-offset-1 ring-offset-surface' : 'h-7 opacity-80 group-hover:h-9 group-hover:opacity-100',
+                  'flex w-full flex-col-reverse overflow-hidden rounded-[3px] transition-all',
+                  isSelected ? 'h-10 ring-2 ring-ink/70 ring-offset-1 ring-offset-surface' : 'h-7 opacity-80 group-hover:h-9 group-hover:opacity-100',
                 )}
-              />
+              >
+                {w.days.map((d, i) => (
+                  <span key={i} className={cx('w-full flex-1', weekKindBg[d])} />
+                ))}
+              </span>
               {w.weekStart === currentWeek && <span className="absolute -bottom-2.5 h-1 w-1 rounded-full bg-ink" aria-hidden="true" />}
               {newMonth && (
                 <span className="pointer-events-none absolute -bottom-6 left-0 hidden text-2xs text-faint sm:block">
@@ -204,38 +230,47 @@ interface CellProps {
   selected: boolean;
   isCurrent: boolean;
   deadlines: Deadline[];
+  hasAbsence: boolean;
   onSelect: () => void;
 }
 
-function WeekCell({ week, selected, isCurrent, deadlines, onSelect }: CellProps) {
+function WeekCell({ week, selected, isCurrent, deadlines, hasAbsence, onSelect }: CellProps) {
   const end = addDays(week.weekStart, 6);
   const range = monthOf(end) === monthOf(week.weekStart) ? `${dayOf(week.weekStart)}–${dayOf(end)}` : `${formatShort(week.weekStart)} – ${formatShort(end)}`;
+  const label = week.mixed
+    ? `${week.days.filter((d) => d === 'ecole').length} j école · ${week.days.filter((d) => d === 'entreprise').length} j entr.`
+    : WEEK_KIND_LABELS[week.kind];
 
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      aria-label={`Semaine du ${formatShort(week.weekStart)}, ${WEEK_KIND_LABELS[week.kind]}${deadlines.length ? `, ${deadlines.length} échéance(s)` : ''}`}
-      className={cx(
-        'relative flex min-h-[72px] flex-col rounded-lg p-2.5 text-left transition-colors',
-        weekKindCell[week.kind],
-        selected && 'ring-2 ring-ink/70',
-      )}
+      aria-label={`Semaine du ${formatShort(week.weekStart)}, ${label}${deadlines.length ? `, ${deadlines.length} échéance(s)` : ''}`}
+      className={cx('relative flex min-h-[76px] flex-col rounded-lg p-2.5 text-left transition-colors', weekKindCell[week.kind], selected && 'ring-2 ring-ink/70')}
     >
       <span className="text-xs font-semibold tabular-nums">{range}</span>
       <span className="mt-0.5 text-2xs opacity-80">
-        {WEEK_KIND_LABELS[week.kind]}
-        {week.isOverride && ' · modifiée'}
+        {label}
+        {week.holidays > 0 && ' · férié'}
+        {week.isOverride && week.holidays === 0 && ' · modifiée'}
       </span>
+      {week.mixed && (
+        <span className="mt-1.5 flex gap-0.5" aria-hidden="true">
+          {week.days.map((d, i) => (
+            <span key={i} className={cx('h-1 flex-1 rounded-full', weekKindBg[d])} />
+          ))}
+        </span>
+      )}
       {isCurrent && (
         <span className="mt-1 inline-flex items-center gap-1 text-2xs font-semibold text-ink">
           <span className="h-1.5 w-1.5 rounded-full bg-ink" aria-hidden="true" />
           Cette semaine
         </span>
       )}
-      {deadlines.length > 0 && (
+      {(deadlines.length > 0 || hasAbsence) && (
         <span className="mt-auto space-y-0.5 pt-1.5">
+          {hasAbsence && <span className="block truncate text-2xs text-ink">◌ Absence prévue</span>}
           {deadlines.slice(0, 2).map((d) => (
             <span key={d.id} className="flex items-center gap-1 truncate text-2xs text-ink">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
@@ -250,18 +285,20 @@ function WeekCell({ week, selected, isCurrent, deadlines, onSelect }: CellProps)
 }
 
 interface DetailProps {
-  weekStart: ISODate;
   week: WeekInfo | undefined;
   deadlines: Deadline[];
+  absences: Absence[];
   tasks: Task[];
   today: ISODate;
-  onChangeKind: (kind: WeekKind) => void;
 }
 
-function WeekDetail({ weekStart, week, deadlines, tasks, today, onChangeKind }: DetailProps) {
-  const { editDeadline } = useUi();
+function WeekDetail({ week, deadlines, absences, tasks, today }: DetailProps) {
+  const { rhythm } = useAppData();
+  const { editDeadline, editAbsence } = useUi();
   if (!week) return null;
+  const { weekStart } = week;
   const end = addDays(weekStart, 6);
+  const defaultDate = weekStart <= today && today <= end ? today : weekStart;
 
   return (
     <aside className="h-fit space-y-6 rounded-xl border border-line bg-surface p-5 lg:sticky lg:top-8" aria-label="Détail de la semaine">
@@ -272,18 +309,80 @@ function WeekDetail({ weekStart, week, deadlines, tasks, today, onChangeKind }: 
         </h2>
       </div>
 
-      <div className="space-y-2">
-        <Segmented label="Type de semaine" value={week.kind} onChange={onChangeKind} options={KIND_OPTIONS} />
+      <div className="space-y-3">
+        <Segmented label="Mode de toute la semaine" value={week.mixed ? ('' as DayKind) : week.kind} onChange={(k) => setWeekKind(weekStart, k)} options={KIND_OPTIONS} />
+        <ul className="grid grid-cols-5 gap-1" aria-label="Jours de la semaine">
+          {[0, 1, 2, 3, 4].map((i) => {
+            const date = addDays(weekStart, i);
+            const info = dayInfo(rhythm, date);
+            const label = info.holiday ? 'Férié' : WEEK_KIND_LABELS[info.kind];
+            return (
+              <li key={date}>
+                <button
+                  type="button"
+                  onClick={() => setDayKind(date, info.holiday ? 'ecole' : info.kind === 'conge' ? 'ferie' : cycleKind(info.kind))}
+                  aria-label={`${formatShort(date)} : ${label}. Changer.`}
+                  title="Cliquer pour changer : École → Entreprise → Congé → Férié"
+                  className={cx(
+                    'flex min-h-[52px] w-full flex-col items-center justify-center rounded-lg text-center transition-colors',
+                    info.holiday ? 'bg-line/60 text-muted' : weekKindCell[info.kind],
+                    date === today && 'ring-2 ring-ink/60',
+                  )}
+                >
+                  <span className="text-2xs capitalize opacity-80">{formatWeekdayShort(date).replace('.', '')}</span>
+                  <span className="text-xs font-semibold tabular-nums">{dayOf(date)}</span>
+                  <span className="text-[10px] leading-3">{label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
         <p className="text-xs text-muted">
-          {week.isOverride ? 'Exception au motif habituel. Choisis le type d’origine pour la retirer.' : 'Selon ton motif d’alternance.'}
+          {week.isOverride ? 'Semaine corrigée. Clique sur un jour pour l’ajuster.' : 'Selon ton rythme. Clique sur un jour pour le corriger (férié, décalage).'}
         </p>
       </div>
 
       <section>
         <SectionTitle
+          count={absences.length}
+          action={
+            <Button size="sm" variant="ghost" icon="plus" onClick={() => editAbsence({ startDate: defaultDate })}>
+              Absence
+            </Button>
+          }
+        >
+          Absences
+        </SectionTitle>
+        {absences.length ? (
+          <ul className="-mx-2">
+            {absences.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  onClick={() => editAbsence(a)}
+                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-sm hover:bg-line/30"
+                >
+                  <span>
+                    {ABSENCE_KIND_LABELS[a.kind]}
+                    {a.label && <span className="text-muted"> · {a.label}</span>}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {a.startDate === a.endDate ? formatShort(a.startDate) : `${formatShort(a.startDate)} → ${formatShort(a.endDate)}`}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-1 text-sm text-muted">Aucune absence prévue.</p>
+        )}
+      </section>
+
+      <section>
+        <SectionTitle
           count={deadlines.length}
           action={
-            <Button size="sm" variant="ghost" icon="plus" onClick={() => editDeadline({ date: weekStart < today && today <= end ? today : weekStart })}>
+            <Button size="sm" variant="ghost" icon="plus" onClick={() => editDeadline({ date: defaultDate })}>
               Échéance
             </Button>
           }
@@ -310,12 +409,6 @@ function WeekDetail({ weekStart, week, deadlines, tasks, today, onChangeKind }: 
             ))}
           </ul>
         </section>
-      )}
-
-      {weekStart === startOfWeek(today) && (
-        <p className="flex items-center gap-2 text-xs text-muted">
-          <Icon name="sun" size={14} /> C’est la semaine en cours.
-        </p>
       )}
     </aside>
   );

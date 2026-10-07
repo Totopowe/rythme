@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRhythm, DEFAULT_PATTERN } from './rhythm';
+import { createRhythm, DEFAULT_PATTERN, fullWeek } from './rhythm';
 import {
   isDormant,
   pendingTransition,
@@ -25,14 +25,13 @@ function task(partial: Partial<Task> & { context?: Context } = {}): Task {
     order: seq,
     done: false,
     doneAt: null,
-    courseId: null,
     createdAt: `2026-01-01T00:00:${String(seq).padStart(2, '0')}`,
     ...partial,
   };
 }
 
 function deadline(date: string, title = 'D'): Deadline {
-  return { id: date + title, title, date, context: 'ecole', kind: 'rendu', notes: '', createdAt: '' };
+  return { id: date + title, title, date, context: 'ecole', kind: 'rendu', notes: '', visibleToTutor: false, createdAt: '' };
 }
 
 describe('schoolWakeState', () => {
@@ -56,7 +55,7 @@ describe('schoolWakeState', () => {
   });
 
   it('gère un rythme sans école', () => {
-    const r = createRhythm('2026-10-05', ['entreprise']);
+    const r = createRhythm('2026-10-05', [fullWeek('entreprise')]);
     expect(schoolWakeState(r, '2026-10-07', 7).awake).toBe(false);
   });
 });
