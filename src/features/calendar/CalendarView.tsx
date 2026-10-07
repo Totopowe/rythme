@@ -18,7 +18,7 @@ const KIND_OPTIONS = WEEK_KINDS.map((k) => ({ value: k, label: WEEK_KIND_LABELS[
 
 const weekKindCell: Record<WeekKind, string> = {
   ecole: 'bg-ecole/15 text-ecole hover:bg-ecole/25',
-  entreprise: 'bg-entreprise/12 text-entreprise hover:bg-entreprise/20',
+  entreprise: 'bg-entreprise/10 text-entreprise hover:bg-entreprise/20',
   conge: 'bg-perso/15 text-perso hover:bg-perso/25',
 };
 
@@ -113,8 +113,8 @@ export function CalendarView() {
 
       <YearStrip weeks={weeks} selected={selected} currentWeek={currentWeek} deadlinesByWeek={deadlinesByWeek} onSelect={setSelected} />
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
-        <div className="space-y-5">
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-5">
           {months.map((m) => (
             <section key={m.key} aria-label={formatMonthYear(`${m.key}-01`)}>
               <h2 className="mb-2 text-[13px] font-semibold text-muted">{capitalize(formatMonthYear(`${m.key}-01`))}</h2>
@@ -159,7 +159,7 @@ interface StripProps {
 /** Frise annuelle compacte : une barre par semaine. */
 function YearStrip({ weeks, selected, currentWeek, deadlinesByWeek, onSelect }: StripProps) {
   return (
-    <div className="rounded-xl border border-line bg-surface p-4">
+    <div className="min-w-0 rounded-xl border border-line bg-surface p-4">
       <div className="flex items-end gap-[2px]" role="group" aria-label="Frise de l’année">
         {weeks.map((w) => {
           const hasDeadline = deadlinesByWeek.has(w.weekStart);
@@ -223,14 +223,17 @@ function WeekCell({ week, selected, isCurrent, deadlines, onSelect }: CellProps)
         selected && 'ring-2 ring-ink/70',
       )}
     >
-      <span className="flex items-center justify-between gap-1">
-        <span className="text-xs font-semibold tabular-nums">{range}</span>
-        {isCurrent && <span className="rounded bg-ink px-1 text-2xs font-semibold text-bg">Cette sem.</span>}
-      </span>
+      <span className="text-xs font-semibold tabular-nums">{range}</span>
       <span className="mt-0.5 text-2xs opacity-80">
         {WEEK_KIND_LABELS[week.kind]}
         {week.isOverride && ' · modifiée'}
       </span>
+      {isCurrent && (
+        <span className="mt-1 inline-flex items-center gap-1 text-2xs font-semibold text-ink">
+          <span className="h-1.5 w-1.5 rounded-full bg-ink" aria-hidden="true" />
+          Cette semaine
+        </span>
+      )}
       {deadlines.length > 0 && (
         <span className="mt-auto space-y-0.5 pt-1.5">
           {deadlines.slice(0, 2).map((d) => (

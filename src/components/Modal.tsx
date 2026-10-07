@@ -51,7 +51,7 @@ export function Modal({ open, onClose, label, children, variant = 'dialog', clas
         'm-0 max-h-none max-w-none bg-transparent p-0 text-ink backdrop:bg-black/35 dark:backdrop:bg-black/60',
         'open:animate-fade-in',
         variant === 'palette'
-          ? 'inset-x-0 top-0 mx-auto h-full w-full pt-[10vh] md:w-[640px] md:px-0'
+          ? 'inset-0 h-full w-full pt-[10vh]'
           : 'inset-0 h-full w-full',
       )}
     >
@@ -66,7 +66,7 @@ export function Modal({ open, onClose, label, children, variant = 'dialog', clas
             className={cx(
               'pointer-events-auto w-full overflow-hidden border border-line bg-raised shadow-overlay',
               variant === 'palette'
-                ? 'animate-pop-in rounded-xl'
+                ? 'animate-pop-in rounded-xl md:max-w-[640px]'
                 : 'animate-slide-up rounded-t-2xl pb-safe md:max-w-lg md:animate-pop-in md:rounded-xl md:pb-0',
               className,
             )}
