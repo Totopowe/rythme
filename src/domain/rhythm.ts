@@ -147,3 +147,23 @@ export function overrideFor(rhythm: Rhythm, weekStart: ISODate, kind: WeekKind):
 export function cycleKind(kind: WeekKind): WeekKind {
   return kind === 'ecole' ? 'entreprise' : kind === 'entreprise' ? 'conge' : 'ecole';
 }
+
+/** Année scolaire (septembre → août) contenant `date` ; août appartient déjà à l'année suivante. */
+export function academicYearStart(date: ISODate): number {
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  return month >= 8 ? year : year - 1;
+}
+
+/**
+ * Semaines de l'année scolaire `year`/`year+1`, de septembre à août.
+ * Une semaine appartient au mois de son jeudi (convention ISO).
+ */
+export function academicYearWeeks(rhythm: Rhythm, year: number): WeekInfo[] {
+  let monday = startOfWeek(`${year}-09-01`);
+  if (addDays(monday, 3) < `${year}-09-01`) monday = addDays(monday, 7);
+  const last = `${year + 1}-08-31`;
+  const weeks: WeekInfo[] = [];
+  for (; addDays(monday, 3) <= last; monday = addDays(monday, 7)) weeks.push(weekInfo(rhythm, monday));
+  return weeks;
+}

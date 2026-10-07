@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  academicYearStart,
+  academicYearWeeks,
   createRhythm,
   cycleKind,
   DEFAULT_PATTERN,
@@ -141,5 +143,22 @@ describe('overrideFor / cycleKind', () => {
     expect(cycleKind('ecole')).toBe('entreprise');
     expect(cycleKind('entreprise')).toBe('conge');
     expect(cycleKind('conge')).toBe('ecole');
+  });
+});
+
+describe('année scolaire', () => {
+  it('commence en août pour l’année suivante', () => {
+    expect(academicYearStart('2026-10-07')).toBe(2026);
+    expect(academicYearStart('2027-03-01')).toBe(2026);
+    expect(academicYearStart('2027-08-10')).toBe(2027);
+  });
+
+  it('couvre septembre à août', () => {
+    const weeks = academicYearWeeks(base(), 2026);
+    expect(weeks[0]?.weekStart).toBe('2026-08-31'); // jeudi 3 septembre
+    expect(weeks.at(-1)?.weekStart).toBe('2027-08-23'); // le 30 août tombe dans une semaine de septembre
+    expect(weeks.length).toBe(52);
+    // 2027 : le 1er septembre est un mercredi, la semaine du 30 août est la première.
+    expect(academicYearWeeks(base(), 2027)[0]?.weekStart).toBe('2027-08-30');
   });
 });
