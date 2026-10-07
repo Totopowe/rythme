@@ -9,6 +9,7 @@ import { TodayView } from './features/today/TodayView';
 import { TasksView } from './features/tasks/TasksView';
 import { CalendarView } from './features/calendar/CalendarView';
 import { NotesView } from './features/notes/NotesView';
+import { ReviewView } from './features/review/ReviewView';
 import { Shell } from './shell/Shell';
 
 export function App() {
@@ -32,6 +33,7 @@ export function App() {
                 <Route path="/calendrier" component={CalendarView} />
                 <Route path="/notes" component={NotesView} />
                 <Route path="/notes/:id" component={NotesView} />
+                <Route path="/revue" component={ReviewView} />
                 <Route>
                   <EmptyState icon="sparkle" title="Bientôt ici">
                     Cette vue arrive dans une prochaine étape.

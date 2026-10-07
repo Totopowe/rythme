@@ -25,6 +25,8 @@ export interface Settings {
   wakeUpDaysBefore: number;
   theme: ThemePreference;
   onboarded: boolean;
+  /** Date de configuration : aucune revue n'est proposée pour les périodes antérieures. */
+  setupDate?: ISODate;
 }
 
 export interface WeekOverride {

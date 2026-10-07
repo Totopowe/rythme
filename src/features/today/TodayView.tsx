@@ -10,6 +10,7 @@ import { QuickAdd } from '../capture/QuickAdd';
 import { DeadlineRow } from '../deadlines/DeadlineRow';
 import { TaskRow } from '../tasks/TaskRow';
 import { ModeHero } from './ModeHero';
+import { ReviewBanner } from '../review/ReviewBanner';
 
 export function TodayView() {
   const { today, rhythm, settings, mode } = useAppData();
@@ -26,6 +27,7 @@ export function TodayView() {
   return (
     <div className="mx-auto max-w-2xl">
       <ModeHero />
+      <ReviewBanner />
       <QuickAdd className="mb-8" />
 
       <div className="space-y-8">

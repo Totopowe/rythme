@@ -41,7 +41,7 @@ export function Onboarding() {
         </p>
         <Button
           variant="primary"
-          onClick={() => void saveSettings({ ...value, onboarded: true })}
+          onClick={() => void saveSettings({ ...value, onboarded: true, setupDate: today })}
           className="sm:min-w-[160px]"
           autoFocus
         >

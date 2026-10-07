@@ -19,6 +19,8 @@ interface Props {
   /** Pour le glisser-déposer. */
   rowRef?: (el: HTMLLIElement | null) => void;
   style?: CSSProperties;
+  /** Actions supplémentaires affichées en fin de ligne. */
+  trailing?: ReactNode;
   /** Déplacement au clavier (Alt+↑/↓) dans une liste réordonnable. */
   onMove?: (delta: 1 | -1) => void;
 }
@@ -42,7 +44,7 @@ export function focusSibling(from: HTMLElement, delta: 1 | -1): void {
   rows[index + delta]?.focus();
 }
 
-export const TaskRow = memo(function TaskRow({ task, today, showContext = true, dormant, handle, className, rowRef, style, onMove }: Props) {
+export const TaskRow = memo(function TaskRow({ task, today, showContext = true, dormant, handle, className, rowRef, style, onMove, trailing }: Props) {
   const ui = useUi();
   const toast = useToast();
   const overdue = !task.done && task.dueDate !== null && task.dueDate < today;
@@ -159,6 +161,7 @@ export const TaskRow = memo(function TaskRow({ task, today, showContext = true, 
         )}
       </button>
 
+      {trailing}
       <button
         type="button"
         tabIndex={-1}

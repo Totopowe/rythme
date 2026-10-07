@@ -120,6 +120,8 @@ export function pendingTransition(
   rhythm: Rhythm,
   today: ISODate,
   doneReviews: readonly { periodEnd: ISODate }[],
+  /** Date de début d'utilisation : les périodes terminées avant ne sont pas proposées. */
+  since?: ISODate,
 ): Transition | null {
   const done = new Set(doneReviews.map((r) => r.periodEnd));
   const current = periodAt(rhythm, today);
@@ -129,7 +131,7 @@ export function pendingTransition(
   }
   if (diffDays(current.start, today) <= REVIEW_DAYS_AFTER_START) {
     const previous = periodAt(rhythm, addDays(current.start, -1));
-    if (!done.has(previous.end)) return transitionAfter(rhythm, previous);
+    if (!done.has(previous.end) && (!since || previous.end >= since)) return transitionAfter(rhythm, previous);
   }
   return null;
 }

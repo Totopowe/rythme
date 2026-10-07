@@ -155,6 +155,7 @@ function checkSettings(o: unknown): Settings | null {
     wakeUpDaysBefore: typeof o.wakeUpDaysBefore === 'number' ? o.wakeUpDaysBefore : 7,
     theme: o.theme === 'light' || o.theme === 'dark' ? o.theme : 'system',
     onboarded: true,
+    ...(isISODate(o.setupDate) ? { setupDate: o.setupDate } : {}),
   };
 }
 

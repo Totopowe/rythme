@@ -138,6 +138,11 @@ describe('pendingTransition', () => {
     expect(pendingTransition(rhythm, '2026-10-29', [])).toBeNull();
   });
 
+  it('ne fait pas rattraper une période antérieure à la configuration', () => {
+    expect(pendingTransition(rhythm, '2026-10-27', [], '2026-10-26')).toBeNull();
+    expect(pendingTransition(rhythm, '2026-10-27', [], '2026-10-20')?.period.end).toBe('2026-10-25');
+  });
+
   it('ne repropose pas une revue faite', () => {
     expect(pendingTransition(rhythm, '2026-10-24', [{ periodEnd: '2026-10-25' }])).toBeNull();
     expect(pendingTransition(rhythm, '2026-10-26', [{ periodEnd: '2026-10-25' }])).toBeNull();
