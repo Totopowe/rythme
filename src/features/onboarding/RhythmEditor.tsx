@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Field, IconButton, cx, inputClass } from '../../components/ui';
-import { formatShort, isISODate, startOfWeek, todayISO, type ISODate } from '../../domain/dates';
+import { dayOf, formatShort, monthOf, isISODate, startOfWeek, todayISO, type ISODate } from '../../domain/dates';
 import { createRhythm, cycleKind, weeksBetween } from '../../domain/rhythm';
 import { WEEK_KIND_LABELS, type WeekKind } from '../../domain/types';
 
@@ -98,7 +98,9 @@ export function RhythmEditor({ startDate, pattern, onChange }: Props) {
           {preview.map((w) => (
             <li key={w.weekStart} className="flex flex-col items-center gap-1" title={`${formatShort(w.weekStart)} – ${WEEK_KIND_LABELS[w.kind]}`}>
               <span className={cx('h-6 w-full rounded', weekKindBg[w.kind])} />
-              <span className="text-2xs tabular-nums text-faint">{formatShort(w.weekStart).replace('.', '')}</span>
+              <span className="whitespace-nowrap text-2xs tabular-nums text-faint">
+                {dayOf(w.weekStart)}/{monthOf(w.weekStart)}
+              </span>
               <span className="sr-only">{WEEK_KIND_LABELS[w.kind]}</span>
             </li>
           ))}
