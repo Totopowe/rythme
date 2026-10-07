@@ -25,6 +25,7 @@ export const SHORTCUT_GROUPS: { title: string; items: { keys: string[]; label: s
       { keys: ['X', 'Espace'], label: 'Cocher / décocher' },
       { keys: ['E', '↵'], label: 'Modifier' },
       { keys: ['Suppr'], label: 'Supprimer (annulable)' },
+      { keys: ['Alt', '↑', '↓'], label: 'Monter / descendre la tâche' },
       { keys: ['F'], label: 'Changer de filtre de contexte' },
     ],
   },

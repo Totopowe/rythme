@@ -1,4 +1,4 @@
-import { memo, type KeyboardEvent, type ReactNode } from 'react';
+import { memo, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '../../components/Icon';
 import { useToast } from '../../components/Toast';
 import { ContextDot, cx } from '../../components/ui';
@@ -6,6 +6,7 @@ import { deleteTask, toggleTask } from '../../db/repo';
 import { formatRelative, type ISODate } from '../../domain/dates';
 import { CONTEXT_LABELS, PRIORITY_LABELS, type Task } from '../../domain/types';
 import { useUi } from '../../shell/uiState';
+import { isTypingTarget } from '../../hooks/useHotkeys';
 
 interface Props {
   task: Task;
@@ -15,9 +16,24 @@ interface Props {
   /** Poignée de glisser-déposer (liste réordonnable). */
   handle?: ReactNode;
   className?: string;
+  /** Pour le glisser-déposer. */
+  rowRef?: (el: HTMLLIElement | null) => void;
+  style?: CSSProperties;
+  /** Déplacement au clavier (Alt+↑/↓) dans une liste réordonnable. */
+  onMove?: (delta: 1 | -1) => void;
 }
 
 const priorityColor = ['', 'text-faint', 'text-perso', 'text-danger'] as const;
+
+/** Si la ligne disparaît (tâche cochée ou supprimée), place le focus sur celle qui prend sa place. */
+function keepFocusNear(row: HTMLElement): void {
+  const index = Array.from(document.querySelectorAll('[data-row]')).indexOf(row);
+  setTimeout(() => {
+    if (row.isConnected) return;
+    const rows = document.querySelectorAll<HTMLElement>('[data-row]');
+    (rows[index] ?? rows[rows.length - 1])?.focus();
+  }, 120);
+}
 
 /** Déplace le focus vers la ligne précédente/suivante de la liste. */
 export function focusSibling(from: HTMLElement, delta: 1 | -1): void {
@@ -26,7 +42,7 @@ export function focusSibling(from: HTMLElement, delta: 1 | -1): void {
   rows[index + delta]?.focus();
 }
 
-export const TaskRow = memo(function TaskRow({ task, today, showContext = true, dormant, handle, className }: Props) {
+export const TaskRow = memo(function TaskRow({ task, today, showContext = true, dormant, handle, className, rowRef, style, onMove }: Props) {
   const ui = useUi();
   const toast = useToast();
   const overdue = !task.done && task.dueDate !== null && task.dueDate < today;
@@ -34,11 +50,22 @@ export const TaskRow = memo(function TaskRow({ task, today, showContext = true, 
   const remove = () => toast.undoable('Tâche supprimée', () => deleteTask(task.id));
 
   const onKeyDown = (e: KeyboardEvent<HTMLLIElement>) => {
-    if (e.target !== e.currentTarget || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.altKey && onMove && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const row = e.currentTarget;
+      onMove(e.key === 'ArrowUp' ? -1 : 1);
+      // Garde le focus sur la tâche déplacée une fois la liste mise à jour.
+      requestAnimationFrame(() => row.focus());
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
+    // La poignée de glisser-déposer gère elle-même Espace, Entrée et les flèches.
+    if ((e.target as HTMLElement).closest('[aria-roledescription="sortable"]')) return;
     switch (e.key) {
       case 'x':
       case ' ':
         e.preventDefault();
+        keepFocusNear(e.currentTarget);
         void toggleTask(task);
         break;
       case 'Enter':
@@ -49,8 +76,9 @@ export const TaskRow = memo(function TaskRow({ task, today, showContext = true, 
       case 'Delete':
       case 'Backspace':
         e.preventDefault();
-        focusSibling(e.currentTarget, 1);
+        keepFocusNear(e.currentTarget);
         void remove();
+        break;
         break;
       case 'ArrowDown':
       case 'j':
@@ -67,6 +95,8 @@ export const TaskRow = memo(function TaskRow({ task, today, showContext = true, 
 
   return (
     <li
+      ref={rowRef}
+      style={style}
       data-row
       tabIndex={0}
       onKeyDown={onKeyDown}

@@ -6,6 +6,7 @@ import { AppDataContext, useLoadAppData } from './hooks/useAppData';
 import { useTheme } from './hooks/useTheme';
 import { Onboarding } from './features/onboarding/Onboarding';
 import { TodayView } from './features/today/TodayView';
+import { TasksView } from './features/tasks/TasksView';
 import { Shell } from './shell/Shell';
 
 export function App() {
@@ -25,6 +26,7 @@ export function App() {
             <Shell>
               <Switch>
                 <Route path="/" component={TodayView} />
+                <Route path="/taches" component={TasksView} />
                 <Route>
                   <EmptyState icon="sparkle" title="Bientôt ici">
                     Cette vue arrive dans une prochaine étape.

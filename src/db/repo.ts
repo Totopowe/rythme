@@ -56,15 +56,14 @@ export interface NewTask {
 }
 
 export async function addTask(input: NewTask): Promise<Task> {
-  const first = await db.tasks.orderBy('order').first();
   const task: Task = {
     id: newId(),
     title: input.title.trim(),
     context: input.context,
     dueDate: input.dueDate ?? null,
     priority: input.priority ?? 0,
-    // Les nouvelles tâches arrivent en haut de la liste.
-    order: (first?.order ?? 0) - 1,
+    // Les nouvelles tâches arrivent en haut de la liste (l'ordre manuel va de 0 à n).
+    order: -Date.now() - Math.random(),
     done: false,
     doneAt: null,
     courseId: input.courseId ?? null,

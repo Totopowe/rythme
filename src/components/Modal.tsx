@@ -48,7 +48,7 @@ export function Modal({ open, onClose, label, children, variant = 'dialog', clas
         if (e.target === ref.current) onClose();
       }}
       className={cx(
-        'm-0 max-h-none max-w-none bg-transparent p-0 text-ink backdrop:bg-black/30 backdrop:backdrop-blur-[2px] dark:backdrop:bg-black/50',
+        'm-0 max-h-none max-w-none bg-transparent p-0 text-ink backdrop:bg-black/35 dark:backdrop:bg-black/60',
         'open:animate-fade-in',
         variant === 'palette'
           ? 'inset-x-0 top-0 mx-auto h-full w-full pt-[10vh] md:w-[640px] md:px-0'

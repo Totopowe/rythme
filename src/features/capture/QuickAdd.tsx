@@ -29,13 +29,12 @@ export function QuickAdd({ context, placeholder = 'Ajouter une tâche…', class
   useHotkeys({ n: () => inputRef.current?.focus() });
 
   const submit = async () => {
-    const outcome = await commitCapture(parsed, fallback, today);
-    if (!outcome.ok) {
-      setError(outcome.message);
-      return;
-    }
+    if (!parsed.title) return setError('Ajoute un titre.');
+    if (parsed.deadlineKind && !parsed.dueDate) return setError('Une échéance a besoin d’une date (ex. « vendredi », « 12/11 »).');
+    // On vide le champ avant l'écriture pour pouvoir enchaîner les saisies sans attendre.
     setText('');
     setError(null);
+    const outcome = await commitCapture(parsed, fallback, today);
     toast.show(outcome.message);
   };
 
